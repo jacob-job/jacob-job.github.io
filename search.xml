@@ -92,10 +92,10 @@
         <category>音视频</category>
       </categories>
       <tags>
-        <tag>Web</tag>
         <tag>H264&amp;H265</tag>
-        <tag>HTML5</tag>
+        <tag>Web</tag>
         <tag>WebAssembly</tag>
+        <tag>HTML5</tag>
       </tags>
   </entry>
   <entry>
@@ -107,9 +107,9 @@
       </categories>
       <tags>
         <tag>Web</tag>
+        <tag>WebAssembly</tag>
         <tag>HTML5</tag>
         <tag>Javascript</tag>
-        <tag>WebAssembly</tag>
       </tags>
   </entry>
   <entry>
@@ -214,8 +214,8 @@
         <category>Mongodb</category>
       </categories>
       <tags>
-        <tag>Node.js</tag>
         <tag>Mongodb</tag>
+        <tag>Node.js</tag>
       </tags>
   </entry>
   <entry>
@@ -288,8 +288,8 @@
         <category>C/C++</category>
       </categories>
       <tags>
-        <tag>Linux</tag>
         <tag>C/C++</tag>
+        <tag>Linux</tag>
       </tags>
   </entry>
   <entry>
@@ -383,8 +383,8 @@
         <category>音视频</category>
       </categories>
       <tags>
-        <tag>Web</tag>
         <tag>H264&amp;H265</tag>
+        <tag>Web</tag>
         <tag>HTML5</tag>
         <tag>Javascript</tag>
       </tags>
@@ -419,8 +419,8 @@
         <category>FFmpeg</category>
       </categories>
       <tags>
-        <tag>H264&amp;H265</tag>
         <tag>FFmpeg</tag>
+        <tag>H264&amp;H265</tag>
       </tags>
   </entry>
   <entry>
