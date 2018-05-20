@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title><![CDATA[ubuntu 64bit安装32bit兼容库]]></title>
+    <url>%2F2018%2F05%2F08%2Flinux__ubuntu_x64_install_32bit_lib%2F</url>
+    <content type="text"><![CDATA[64位系统需要安装一些32位的库才能兼容32位的应用 更新源 dpkg --add-architecture i386 apt-get update 安装 apt-get install libc6:i386 apt-get install libncurses5:i386 apt-get install libstdc++6:i386 apt-get install libz1:i386]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[ubuntu server 14.04和18.04挂载vmware共享文件夹]]></title>
+    <url>%2F2018%2F05%2F08%2Flinux__ubuntu_14%2618_mount_wmware_hgfs%2F</url>
+    <content type="text"><![CDATA[之前试过在Linux中mount -t cifs的方式挂载windows的共享目录，但这是通过网络挂载，有时拔掉网线或者IP冲突时经常掉线，有时编译大文件频繁读写时也出问题。所以就使用直接挂载vmware共享文件夹的方式，比较稳定。 ubuntu server 14.04先在虚拟机Ubuntu系统关机的情况下配置好共享文件夹，比如我配置的文件夹是linux_shared。然后开启Ubuntu并查看有哪些可用的共享目录： vmware-hgfsclient 提示linux_shared就是刚才设置好的共享文件夹名称了。 mount -t vmhgfs .host:/linux_shared /mnt/hgfs 如果提示Error: cannot mount filesystem: No such device就先安装open-vm-dkms再执行上面的挂载命令 apt-get install open-vm-dkms ubuntu server 18.04我在ubuntu server 18.04中使用mount -t vmhgfs .host:/linux_shared /mnt/hgfs的方式，会报错：Error: cannot mount filesystem: No such device。安装apt-get install open-vm-dkms也不行。所以就使用以下方法了： vmhgfs-fuse .host:/linux_shared /mnt/hgfs 如果想每次开机都自动挂载，可以把上面这条挂载命令复制到/etc/rc.local中。如果开机后没有自动执行/etc/rc.local的内容，先检查一下： ls -l /bin/sh 如果这个文件链接指向的不是/bin/bash而是dash，执行以下命令更换一下就好，下次开机时就会执行/etc/rc.local了。 rm /bin/sh ln -s /bin/bash /bin/sh]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>vmware</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[ubuntu server安装vmware-tools]]></title>
+    <url>%2F2018%2F05%2F08%2Flinux__ubuntu_server_install_wmtools%2F</url>
+    <content type="text"><![CDATA[ubuntu server服务器版和ubuntu desktop 桌面版安装vmware-tools最大的区别就是没有图形界面，需要通过命令行挂载才能找到vmware-tools的安装包。 1、挂载拷贝安装包 mkdir /mnt/vmtools mount -t iso9660 /dev/cdrom /mnt/vmtools cp /mnt/vmtools/VMwareTools-10.1.15-6627299.tar.gz /tmp umount /dev/cdrom 2、安装 cd /tmp tar xvf /tmp/VMwareTools-10.1.15-6627299.tar.gz cd vmware-tools-distrib ./vmware-install.pl 安装过程全部选择默认选项，也就是一直回车就好。]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>vmware</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[linux socket使用ARP判断局域网指定IP是否被占用]]></title>
+    <url>%2F2018%2F05%2F03%2Ftcpip__linux_socket_arp%2F</url>
+    <content type="text"><![CDATA[项目中需要判断局域网内某个IP是否被占用，一开始想到的是ping命令，但是ping只能判断同一网段的IP。后来发现linux使用arping命令可以判断，如使用arping -D -f -w 1 x.x.x.x 但是对于经过裁剪的嵌入式linux，busybox中不一定还保留arping命令，而且C代码中调用shell命令需要临时创建一个子进程来执行，频繁操作会浪费资源。于是决定参考busybox源码中的arping.c自己实现C代码socket的ARP，以下代码是从busybox的arping.c中提取的。 需要能区分出以下6种情况： 同网段本IP且IP不冲突 同网段本IP且IP冲突 同网段其他IP且IP存在 同网段其他IP且IP不存在 跨网段IP存在 跨网段IP不存在 如何使用调用函数arp_get_mac即可，参数if_name 是网卡名称，嵌入式中经常是eth0，str_src_ip是本设备的IP，str_dst_ip是需要判断的目标IP，dst_mac返回目标IP对应设备的MAC，timeout_ms指定超时时间，单位是ms。 返回值中，对于str_src_ip与str_dst_ip不相同的情况下，该IP正被占用返回1，未被占用返回0.对于str_src_ip与str_dst_ip相同的情况，该IP只有本设备在使用则返回2，本设备的IP与别的设备IP冲突，且该IP正被别的设备占用则返回1。 /** 返回值: -1 错误 0 不存在 1 存在 2 请求IP是本设备IP,且IP可用 */ int arp_get_mac(char *if_name,char *str_src_ip,char *str_dst_ip,unsigned char *dst_mac,int timeout_ms) 流程解释先按需求设置好socket，封装好struct sockaddr以及需要发送的数据，以UDP广播的方式发送出去，然后接收广播包，在接收到的数据包中分析提取需要的信息，如果能提取到则说明该IP正在被占用。 实例代码：/** 根据指定IP地址获取MAC地址，可用于判断IP是否被占用 */ #include &lt;stdlib.h&gt; #include &lt;sys/param.h&gt; #include &lt;sys/socket.h&gt; #include &lt;linux/sockios.h&gt; #include &lt;sys/file.h&gt; #include &lt;sys/time.h&gt; #include &lt;sys/signal.h&gt; #include &lt;sys/ioctl.h&gt; #include &lt;linux/if.h&gt; #include &lt;linux/if_arp.h&gt; #include &lt;sys/uio.h&gt; #include &lt;netdb.h&gt; #include &lt;unistd.h&gt; #include &lt;stdio.h&gt; #include &lt;ctype.h&gt; #include &lt;errno.h&gt; #include &lt;string.h&gt; #include &lt;netinet/in.h&gt; #include &lt;arpa/inet.h&gt; #include &lt;debug_util.h&gt; #include &quot;arp_get_mac.h&quot; #define MS_TDIFF(tv1,tv2) ( ((tv1).tv_sec-(tv2).tv_sec)*1000 + ((tv1).tv_usec-(tv2).tv_usec)/1000 ) int send_pack(int fd, struct in_addr src, struct in_addr dst, struct sockaddr_ll *ME, struct sockaddr_ll *HE) { int advert=0; int err; struct timeval now; unsigned char buf[256]; struct arphdr *ah = (struct arphdr*)buf; unsigned char *p = (unsigned char *)(ah+1); ah-&gt;ar_hrd = htons(ME-&gt;sll_hatype); /* 硬件地址类型*/ if (ah-&gt;ar_hrd == htons(ARPHRD_FDDI)) ah-&gt;ar_hrd = htons(ARPHRD_ETHER); ah-&gt;ar_pro = htons(ETH_P_IP); /* 协议地址类型 */ ah-&gt;ar_hln = ME-&gt;sll_halen; /* 硬件地址长度 */ ah-&gt;ar_pln = 4; /* 协议地址长度 */ ah-&gt;ar_op = advert ? htons(ARPOP_REPLY) : htons(ARPOP_REQUEST);/* 操作类型*/ memcpy(p, &amp;ME-&gt;sll_addr, ah-&gt;ar_hln); /* 发送者硬件地址*/ p+=ME-&gt;sll_halen; /*以太网为6*/ memcpy(p, &amp;src, 4); /* 发送者IP */ p+=4; /* 目的硬件地址*/ if (advert) memcpy(p, &amp;ME-&gt;sll_addr, ah-&gt;ar_hln); else memcpy(p, &amp;HE-&gt;sll_addr, ah-&gt;ar_hln); p+=ah-&gt;ar_hln; memcpy(p, &amp;dst, 4); /* 目的IP地址*/ p+=4; gettimeofday(&amp;now, NULL); err = sendto(fd, buf, p-buf, 0, (struct sockaddr*)HE, sizeof(*HE)); return err; } int is_time_out(struct timeval *start,int timeout_ms) { struct timeval tv; gettimeofday(&amp;tv, NULL); if ((start-&gt;tv_sec==0)&amp;&amp;(start-&gt;tv_usec==0)){ *start = tv; } if (timeout_ms &amp;&amp; MS_TDIFF(tv,*start) &gt; timeout_ms) return 1; else return 0; } /*数据包分析主程序. 把ARP 请求和答复的数据包格式 |---------------28 bytes arp request/reply-----------------------------| |--------ethernet header----| _____________________________________________________________________________________________________ |ethernet | ethernet| frame|hardware|protocol|hardware|protocol|op|sender |sender|target |target| |dest addr|src addr | type| type |type | length |length | |eth addr| IP |eth addr| IP | ----------------------------------------------------------------------------------------------------- 6 types 6 2 2 2 1 1 2 6 4 6 4 */ int recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM, struct sockaddr_ll *me, struct in_addr *src, struct in_addr *dst, unsigned char *dst_mac, int *recv_count) { struct timeval tv; struct arphdr *ah = (struct arphdr*)buf; unsigned char *p = (unsigned char *)(ah+1); struct in_addr src_ip, dst_ip; gettimeofday(&amp;tv, NULL); /* Filter out wild packets */ if (FROM-&gt;sll_pkttype != PACKET_HOST &amp;&amp; FROM-&gt;sll_pkttype != PACKET_BROADCAST &amp;&amp; FROM-&gt;sll_pkttype != PACKET_MULTICAST){ return 0; } /*到这里pkttype为HOST||BROADCAST||MULTICAST*/ /* Only these types are recognised */ /*只要ARP request and reply*/ if (ah-&gt;ar_op != htons(ARPOP_REQUEST) &amp;&amp; ah-&gt;ar_op != htons(ARPOP_REPLY)){ return 0; } /* ARPHRD check and this darned FDDI hack here :-( */ if (ah-&gt;ar_hrd != htons(FROM-&gt;sll_hatype) &amp;&amp; (FROM-&gt;sll_hatype != ARPHRD_FDDI || ah-&gt;ar_hrd != htons(ARPHRD_ETHER))){ return 0; } /* Protocol must be IP. */ if (ah-&gt;ar_pro != htons(ETH_P_IP)){ return 0; } if (ah-&gt;ar_pln != 4){ return 0; } if (ah-&gt;ar_hln != me-&gt;sll_halen){ return 0; } if (len &lt; sizeof(*ah) + 2*(4 + ah-&gt;ar_hln)){ return 0; } /*src_ip:对方的IP det_ip:我的IP*/ memcpy(&amp;src_ip, p+ah-&gt;ar_hln, 4); memcpy(&amp;dst_ip, p+ah-&gt;ar_hln+4+ah-&gt;ar_hln, 4); (*recv_count)++; __ERR(&quot;[%s:%d] res_src=%s, &quot;,__FUNCTION__,__LINE__,inet_ntoa(src_ip)); __ERR(&quot;res_dst=%s\n&quot;,inet_ntoa(dst_ip)); /* DAD packet was: src_ip = 0 (or some src) src_hw = ME dst_ip = tested address dst_hw = &lt;unspec&gt;; We fail, if receive request/reply with: src_ip = tested_address src_hw != ME if src_ip in request was not zero, check also that it matches to dst_ip, otherwise dst_ip/dst_hw do not matter. */ /*dst.s_addr是我们发送请求是置的对方的IP,当然要等于对方发来的包的src_ip啦*/ if (src_ip.s_addr != dst-&gt;s_addr){ __ERR(&quot;[%s:%d] res_src=%s, &quot;,__FUNCTION__,__LINE__,inet_ntoa(src_ip)); __ERR(&quot;req_dst=%s\n&quot;,inet_ntoa(*dst)); return 0; } if (memcmp(p, &amp;me-&gt;sll_addr, me-&gt;sll_halen) == 0){ return 0; } /*同理,src.s_addr是我们发包是置的自己的IP,要等于对方回复包的目的地址*/ if (src-&gt;s_addr &amp;&amp; src-&gt;s_addr != dst_ip.s_addr){ __ERR(&quot;[%s:%d] req_src=%s, &quot;,__FUNCTION__,__LINE__,inet_ntoa(*src)); __ERR(&quot;res_dst=%s\n&quot;,inet_ntoa(dst_ip)); return 0; } int i=0; for(i=0;(i&lt;ARP_MAC_BYTE)&amp;&amp;(i&lt;ah-&gt;ar_hln);i++){ dst_mac[i] = p[i]; } return 1; } /** 返回值 : -1 错误 0 不存在 1 存在 2 请求IP是本设备IP,且IP可用 */ int arp_get_mac(char *if_name,char *str_src_ip,char *str_dst_ip,unsigned char *dst_mac,int timeout_ms) { __ERR(&quot;arp_get_mac: if_name(%s) src_ip(%s) dst_ip(%s) timeout_ms(%d)\n&quot;,if_name,str_src_ip,str_dst_ip,timeout_ms); if((if_name==NULL)||(str_src_ip==NULL)||(str_dst_ip==NULL)||(dst_mac==NULL)||(timeout_ms==0)){ return -1; } int i=0; for(i=0;i&lt;ARP_MAC_BYTE;i++){ dst_mac[i] = 0; } struct in_addr src; struct in_addr dst; struct sockaddr_ll me; struct sockaddr_ll he; memset(&amp;src,0,sizeof(struct in_addr)); memset(&amp;dst,0,sizeof(struct in_addr)); memset(&amp;me,0,sizeof(struct sockaddr_ll)); memset(&amp;he,0,sizeof(struct sockaddr_ll)); int recv_count=0; int is_same_ip = (!strcmp(str_src_ip,str_dst_ip))?1:0; int socket_errno=0; int ch=0; uid_t uid = getuid(); setuid(uid); /*取得一个packet socket. int packet_sock=socket(PF_PACKET,int sock_type,int protocol); 其中sock_type有两种: 1.SOCK_RAW,使用类型的套接字,那么当你向设备写数据时,要提供physical layer header.当从设备读数据时,得到的数据是含有physical layer header的 2.SOCK_DGRAM.这种类型的套接字使用在相对高层.当数据传送给用户之前,physical layer header已经去掉了*/ int fd = socket(PF_PACKET, SOCK_DGRAM, 0); socket_errno = errno; if (fd &lt; 0) { errno = socket_errno; perror(&quot;arping: socket&quot;); return -1; } struct ifreq ifr; memset(&amp;ifr, 0, sizeof(ifr)); strncpy(ifr.ifr_name, if_name, IFNAMSIZ-1); // src 网卡 eth0 // 判断网卡是否存在 if (ioctl(fd, SIOCGIFINDEX, &amp;ifr) &lt; 0) { fprintf(stderr, &quot;arping: unknown iface %s\n&quot;, if_name); close(fd); return -1; } int ifindex = ifr.ifr_ifindex; if (ioctl(fd, SIOCGIFFLAGS, (char*)&amp;ifr)) { perror(&quot;ioctl(SIOCGIFFLAGS)&quot;); close(fd); return -1; } /*设备当然是要up的想要bring up eth0 可以/etc/sysconfig/network-scripts/ifup eth0*/ //网卡被禁用 if (!(ifr.ifr_flags&amp;IFF_UP)) { __ERR(&quot;Interface \&quot;%s\&quot; is down\n&quot;, if_name); close(fd); return -1; } //网卡禁用ARP功能 if (ifr.ifr_flags&amp;(IFF_NOARP|IFF_LOOPBACK)) { __ERR(&quot;Interface \&quot;%s\&quot; is not ARPable\n&quot;, if_name); close(fd); return -1; } // 设置超时 struct timeval timeout; timeout.tv_sec = timeout_ms/1000;//秒 timeout.tv_usec = (timeout_ms%1000)*1000;//微秒 if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &amp;timeout, sizeof(timeout)) == -1) { perror(&quot;setsockopt failed:&quot;); close(fd); return -1; } //转换得到 dst ip if (inet_aton(str_dst_ip, &amp;dst) != 1) { struct hostent *hp; hp = gethostbyname2(str_dst_ip, AF_INET); if (!hp) { fprintf(stderr, &quot;arping: unknown host %s\n&quot;, str_dst_ip); close(fd); return -1; } memcpy(&amp;dst, hp-&gt;h_addr, 4); } me.sll_family = AF_PACKET; me.sll_ifindex = ifindex; me.sll_protocol = htons(ETH_P_ARP); /* 只想要由me指定的接口收到的数据包*/ if (bind(fd, (struct sockaddr*)&amp;me, sizeof(me)) == -1) { perror(&quot;bind&quot;); close(fd); return -1; } int alen = sizeof(me); /*get link layer information 是下面这些.因为sll_family sll_ifindex sll_protocol已知 unsigned short sll_hatype; Header type unsigned char sll_pkttype; Packet type unsigned char sll_halen; Length of address unsigned char sll_addr[8]; Physical layer address */ if (getsockname(fd, (struct sockaddr*)&amp;me, &amp;alen) == -1) { perror(&quot;getsockname&quot;); close(fd); return -1; } if (me.sll_halen == 0) { __ERR(&quot;Interface \&quot;%s\&quot; is not ARPable (no ll address)\n&quot;, if_name); close(fd); return -1; } he = me; /*把他的地址设为ff:ff:ff:ff:ff:ff 即广播地址,当然假设是以太网*/ memset(he.sll_addr, -1, he.sll_halen); __ERR(&quot;ARPING %s &quot;, inet_ntoa(dst)); __ERR(&quot;from %s %s\n&quot;, inet_ntoa(src), if_name ? : &quot;&quot;); send_pack(fd, src, dst, &amp;me, &amp;he); struct timeval start; memset(&amp;start,0,sizeof(struct timeval)); int recv_status = 0; while(1) { if(is_time_out(&amp;start, timeout_ms)) break; char packet[4096]; struct sockaddr_ll from; memset(&amp;from,0,sizeof(struct sockaddr_ll)); int alen = sizeof(from); int cc=0; /*注意s的类型是SOCK_DGRAM,所以收到的数据包里没有link layer info,这些信息被记录在from里*/ if ((cc = recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr *)&amp;from, &amp;alen)) &lt; 0) { perror(&quot;arping: recvfrom&quot;); continue; } recv_status = recv_pack(packet, cc, &amp;from, &amp;me, &amp;src, &amp;dst, dst_mac, &amp;recv_count); if(is_same_ip &amp;&amp; (!recv_status)){ if(recv_count&gt;0){ recv_status=2; break; } } if(!recv_status) continue; break; } if(is_same_ip &amp;&amp; (recv_status!=1)){ recv_status=2; } if(recv_status&gt;0){ __ERR(&quot;recv_status=%d,dst_mac=[%02X:%02X:%02X:%02X:%02X:%02X]\n&quot;,recv_status,dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5]); } return recv_status; } #if 0 int main(int argc, char **argv) { if(argc!=2) return 0; char *if_name = &quot;eth0&quot;; char *str_src_ip = &quot;192.168.4.158&quot;; char *str_dst_ip = argv[1]; unsigned char dst_mac[ARP_MAC_BYTE]={0}; int ret = arp_get_mac(if_name,str_src_ip,str_dst_ip,dst_mac, 1000); printf(&quot;ret=%d,dst_mac=[%02X:%02X:%02X:%02X:%02X:%02X]\n&quot;,ret,dst_mac[0],dst_mac[1],dst_mac[2],dst_mac[3],dst_mac[4],dst_mac[5]); return 0; } #endif]]></content>
+      <categories>
+        <category>TCP/IP</category>
+      </categories>
+      <tags>
+        <tag>TCP/IP</tag>
+        <tag>ARP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[Makefile C与C++混编的简单写法]]></title>
+    <url>%2F2018%2F05%2F03%2Flinux__makefile_c%26c%2B%2B_build%2F</url>
+    <content type="text"><![CDATA[用了很久的Linux,感觉还是对Makefile不够熟悉，经常为一个复杂一点的项目的Makefile折腾半天。现在对Makefile的基本写法做一下总结，方便以后查阅。 这里用我近期写的一个Makefile做讲解，是一个C与C++混编的项目。并附上完整的Makefile内容。 ###目录结构是： +--include/ +--include/librtmp +--liblog/ +--librtmp/ +--release/ +--release/liblog +--release/librtmp +--xx.cpp +--Makefile ###讲解： TARGET : 目标文件 OBJ_DIR_THIS : 中间文件存放目录 COMPILE.cpp和COMPILE.c ： 编译 LINK.cpp和LINK.c ： 链接 SOURCE_PATHS ： 源码.c和.cpp存放目录，多个目录用空格隔开 INCLUDE_PATHS ： 文件夹.h存放目录，多个目录用空格隔开 foreach ： 用于遍历多个目录 wildcard ： 用于遍历指定目录的指定文件 RELOBJFILES_cpp和RELOBJFILES_c ： .cpp和.c编译后对应的.o文件 make的时候会先执行COMPILE.cpp和COMPILE.c分别把.cpp和.c编译成.o文件，然后再执行LINK.cpp把.o文件以及依赖的库文件链接成目标文件。 ###示例： TARGET = rtmp_server OBJ_DIR_THIS = release C_FLAGS = -Wall -g CPP_FLAGS = -I. \ -I./include \ -I./include/librtmp \ -D_GNU_SOURCE \ -D_LARGEFILE64_SOURCE \ -D_FILE_OFFSET_BITS=64 \ -D__STDC_CONSTANT_MACROS LD_FLAGS = -lpthread COMPILE.cpp = g++ $(C_FLAGS) $(CPP_FLAGS) -c LINK.cpp = g++ COMPILE.c = gcc $(C_FLAGS) $(CPP_FLAGS) -c LINK.c = gcc RELCFLAGS = -O2 -fno-strict-aliasing SOURCE_PATHS = . liblog librtmp SOURCES_cpp = $(foreach dir,$(SOURCE_PATHS),$(wildcard $(dir)/*.cpp)) SOURCES_c = $(foreach dir,$(SOURCE_PATHS),$(wildcard $(dir)/*.c)) INCLUDE_PATHS = . include librtmp HEADERS = $(foreach dir,$(INCLUDE_PATHS),$(wildcard $(dir)/*.h)) RELOBJFILES_cpp = $(SOURCES_cpp:%.cpp=$(OBJ_DIR_THIS)/%.o) RELOBJFILES_c = $(SOURCES_c:%.c=$(OBJ_DIR_THIS)/%.o) OBJ_DIR_PATHS = $(foreach dir,$(SOURCE_PATHS), $(OBJ_DIR_THIS)/$(dir)) .PHONY: clean mkdir release all: mkdir release mkdir: mkdir -p $(OBJ_DIR_PATHS) release: $(TARGET) $(TARGET): $(RELOBJFILES_cpp) $(RELOBJFILES_c) $(LINK.cpp) -o $@ $^ -lrt $(LD_FLAGS) @echo === make ok, output: $(TARGET) === $(RELOBJFILES_cpp): $(OBJ_DIR_THIS)/%.o: %.cpp $(HEADERS) $(COMPILE.cpp) $(RELCFLAGS) -o $@ $&lt; $(RELOBJFILES_c): $(OBJ_DIR_THIS)/%.o: %.c $(HEADERS) $(COMPILE.c) $(RELCFLAGS) -o $@ $&lt; clean: -$(RM) -rf $(TARGET) $(OBJ_DIR_THIS) *.d]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>Makefile</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[使用gsoap编译生成onvif源码C/C++文件]]></title>
+    <url>%2F2018%2F03%2F05%2Fonvif__gsoap_build_onvif_source%2F</url>
+    <content type="text"><![CDATA[1、gsoap工具编译与安装需要先安装openssl sudo apt-get install openssl sudo apt-get install libssl-dev 自行下载gsoap源码并解压，进入gsoap源码下 ./config make sudo make install 安装成功后可以使用wsdl2h 和soapcpp2命令wsdl2h 命令用于生成头文件soapcpp2 命令用于生成源码 2、开始生成源码新建一个目录，如onvif_code，把源码目录中的typemap.dat拷贝到此目录 2.1 生成onvif.h文件需要下载哪些wsdl、xsd文件，请根据项目实际需求选择，本文只是介绍编译步骤。 在线生成onvif.h文件注意，如果在线下载的网络不佳，建议使用本地生成的方法。wsdl2h的参数说明，其中-c表示生成的源码是C语言，-c++表示生成C++，其他参数说明自行通过wsdl2h -h命令查看。 wsdl2h -o onvif.h -c -s -t ./typemap.dat http://www.onvif.org/onvif/ver10/device/wsdl/devicemgmt.wsdl http://www.onvif.org/onvif/ver10/media/wsdl/media.wsdl http://www.onvif.org/onvif/ver10/event/wsdl/event.wsdl http://www.onvif.org/onvif/ver10/display.wsdl http://www.onvif.org/onvif/ver10/deviceio.wsdl http://www.onvif.org/onvif/ver20/imaging/wsdl/imaging.wsdl http://www.onvif.org/onvif/ver20/ptz/wsdl/ptz.wsdl http://www.onvif.org/onvif/ver10/receiver.wsdl http://www.onvif.org/onvif/ver10/recording.wsdl http://www.onvif.org/onvif/ver10/search.wsdl http://www.onvif.org/onvif/ver10/network/wsdl/remotediscovery.wsdl http://www.onvif.org/onvif/ver10/replay.wsdl http://www.onvif.org/onvif/ver20/analytics/wsdl/analytics.wsdl http://www.onvif.org/onvif/ver10/analyticsdevice.wsdl http://www.onvif.org/ver10/actionengine.wsdl http://www.onvif.org/ver10/pacs/accesscontrol.wsdl http://www.onvif.org/ver10/pacs/doorcontrol.wsdl 本地生成onvif.h文件使用在线生成时经常会出错，建议先把相关文件逐个下载下来后本地生成onvif.h。在onvif_code文件夹中新建wsdl目录，把上述文件全部下载下来。 wget http://www.onvif.org/onvif/ver10/device/wsdl/devicemgmt.wsdl http://www.onvif.org/onvif/ver10/events/wsdl/event.wsdl http://www.onvif.org/onvif/ver10/display.wsdl http://www.onvif.org/onvif/ver10/deviceio.wsdl http://www.onvif.org/onvif/ver20/imaging/wsdl/imaging.wsdl http://www.onvif.org/onvif/ver20/media/wsdl/media.wsdl http://www.onvif.org/onvif/ver20/ptz/wsdl/ptz.wsdl http://www.onvif.org/onvif/ver10/receiver.wsdl http://www.onvif.org/onvif/ver10/recording.wsdl http://www.onvif.org/onvif/ver10/search.wsdl http://www.onvif.org/onvif/ver10/replay.wsdl http://www.onvif.org/onvif/ver10/thermal/wsdl/thermal.wsdl http://www.onvif.org/onvif/ver20/analytics/wsdl/analytics.wsdl http://www.onvif.org/onvif/ver10/analyticsdevice.wsdl http://www.onvif.org/ver10/actionengine.wsdl http://www.onvif.org/ver10/pacs/accesscontrol.wsdl http://www.onvif.org/ver10/pacs/doorcontrol.wsdl http://www.onvif.org/ver10/advancedsecurity/wsdl/advancedsecurity.wsdl http://www.onvif.org/ver10/accessrules/wsdl/accessrules.wsdl http://www.onvif.org/ver10/credential/wsdl/credential.wsdl http://www.onvif.org/ver10/schedule/wsdl/schedule.wsdl http://www.onvif.org/onvif/ver10/schema/onvif.xsd http://www.onvif.org/ver10/pacs/types.xsd http://www.w3.org/2005/08/addressing/ws-addr.xsd http://docs.oasis-open.org/wsn/t-1.xsd http://docs.oasis-open.org/wsn/b-2.xsd http://docs.oasis-open.org/wsrf/bf-2.xsd http://www.w3.org/2001/xml.xsd http://docs.oasis-open.org/wsn/bw-2.wsdl http://docs.oasis-open.org/wsrf/rw-2.wsdl http://docs.oasis-open.org/wsrf/r-2.xsd 编译过程可能会提示某个xsd文件没找到，那是当前编译的wsdl文件中包含该xsd文件时路径与本地路径不一致，修改wsdl文件中的该路径就好。 wsdl2h -o onvif.h -c -s -t ./typemap.dat wsdl/devicemgmt.wsdl wsdl/event.wsdl wsdl/display.wsdl wsdl/deviceio.wsdl wsdl/imaging.wsdl wsdl/media.wsdl wsdl/ptz.wsdl wsdl/receiver.wsdl wsdl/recording.wsdl wsdl/search.wsdl wsdl/replay.wsdl wsdl/thermal.wsdl wsdl/analytics.wsdl wsdl/analyticsdevice.wsdl wsdl/actionengine.wsdl wsdl/accesscontrol.wsdl wsdl/doorcontrol.wsdl wsdl/advancedsecurity.wsdl wsdl/accessrules.wsdl wsdl/credential.wsdl wsdl/schedule.wsdl 2.2 生成源文件soapcpp2的具体参数说明可以通过soapcpp2 -h查看，-c生成C语言，-c++生成C++，-C只生成client源码，-S只生成server源码，-x不生成XML文件 生成C源文件soapcpp2 -c onvif.h -x -I gsoap源码的import文件夹路径 -I gsoap源码的gsoap文件夹路径 生成C++源文件soapcpp2 -c++ onvif.h -x -I gsoap源码的import文件夹路径 -I gsoap源码的gsoap文件夹路径 至此onvif源码生成完毕，2.1步骤生成的onvif.h文件的作用只是用于生成源码的中间文件，不需要放入onvif源码的工程中。]]></content>
+      <categories>
+        <category>Onvif</category>
+      </categories>
+      <tags>
+        <tag>Onvif</tag>
+        <tag>gSOAP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[https server的ssl协议实现]]></title>
+    <url>%2F2018%2F03%2F05%2Ftcpip__https_ssl_openssl%2F</url>
+    <content type="text"><![CDATA[简介HTTPS协议简单的说就是经过ssl加密的HTTP协议，本文不介绍https server中http信令的实现，只介绍ssl的实现。 需要的库使用openssl实现ssl，需要编译openssl生成libssl.a和libcrypto.a API的使用需要包含的头文件 #include &lt;openssl/ssl.h&gt; 初始化，cert_path是证书文件的路径，private_key_path是私钥文件路径 SSL_CTX* ssl_socket_init(const char* cert_path, const char* private_key_path) { SSL_library_init(); OpenSSL_add_all_algorithms(); SSL_load_error_strings(); SSL_CTX* ctx = SSL_CTX_new(SSLv23_server_method()); if (ctx == NULL) { return ctx; } if ((SSL_CTX_use_certificate_file(ctx, cert_path, SSL_FILETYPE_PEM) &lt; 1) || (SSL_CTX_use_PrivateKey_file(ctx, private_key_path, SSL_FILETYPE_PEM) &lt; 1) || (!SSL_CTX_check_private_key(ctx)) ) { SSL_CTX_free(ctx); ctx = NULL; return ctx; } return ctx; } 释放 void ssl_socket_free(SSL_CTX* ctx) { if (ctx) { SSL_CTX_free(ctx); } } 当有连接时，在socket accept()之后，针对每个socket的fd需要设置一次 SSL_CTX* ssl_ctx; SSL *ssl = SSL_new(ssl_ctx); if (!ssl) { return; } SSL_set_fd(ssl, connfd); if (SSL_accept(ssl) == -1) { close(connfd); return; } 接收socket数据 recv_size = SSL_read(ssl, buffer, BUFFER_SIZE-1); 发送socket数据 SSL_write(ssl, buf, strlen(buf));]]></content>
+      <categories>
+        <category>TCP/IP</category>
+      </categories>
+      <tags>
+        <tag>TCP/IP</tag>
+        <tag>HTTPS</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[web无插件解码播放H264/H265(WebAssembly解码HTML5播放)]]></title>
+    <url>%2F2018%2F03%2F04%2Fweb__web_wasm_decode_h264_h265%2F</url>
+    <content type="text"><![CDATA[我之前写过一篇《web无插件解码播放H264/H265(js解码HTML5播放)》，与本文的项目意义基本一致，不同的是实现方案有一定差异。之前介绍的是纯JS解码，本文介绍WebAssembly解码。 本项目已经用于实际产品之中，亲测可用。 项目描述： 视频传输使用websocket协议，ipc后端推流使用C语言编程，web前端收流使用js语言。 视频解码库使用WebAssembly实现，js把取到的媒体数据通过封装好的接口传递给WebAssembly解码。 视频播放使用HTML5的canvas播放，js获取到WebAssembly解码后的YUV数据，转换为RGB后在canvas上播放。 实现方法：具体的编译方法和接口调用方法，请参考我的另一篇文章，此文章介绍的很清楚。《JS如何调用WebAssembly的api》 至于js获取到解码器传递过来的yuv数据之后如何播放出来，后面再整理笔记吧。]]></content>
+      <categories>
+        <category>Web</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>Web</tag>
+        <tag>H264&amp;H265</tag>
+        <tag>HTML5</tag>
+        <tag>WebAssembly</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[JS如何调用WebAssembly的api]]></title>
+    <url>%2F2018%2F03%2F04%2Fweb__js_call_wasm_api%2F</url>
+    <content type="text"><![CDATA[这里以我之前做的一个项目为例。项目是把ffmpeg编译成WebAssembly文件，然后在js中调用，实现纯前端代码软解码音视频数据。 在linux下编译的 一、编译ffmpeg生成静态库build_decoder.sh echo &quot;Beginning Build:&quot; rm -r dist mkdir -p dist cd ffmpeg-3.3.3 make clean emconfigure ./configure --cc=&quot;emcc&quot; --cxx=&quot;em++&quot; --ar=&quot;emar&quot; --prefix=$(pwd)/../dist --enable-cross-compile --target-os=none --arch=x86_32 --cpu=generic \ --enable-gpl --enable-version3 --disable-avdevice --disable-avformat --disable-swresample --disable-postproc --disable-avfilter \ --disable-programs --disable-logging --disable-everything --enable-decoder=hevc --enable-decoder=h264 \ --disable-ffplay --disable-ffprobe --disable-ffserver --disable-asm --disable-doc --disable-devices --disable-network \ --disable-hwaccels --disable-parsers --disable-bsfs --disable-debug --disable-protocols --disable-indevs --disable-outdevs \ make make install cd .. ./build_decoder_wasm.sh 二、编译静态库生成libffmpeg.wasm和libffmpeg.jsbuild_decoder_wasm.sh rm libffmpeg.wasm libffmpeg.js export TOTAL_MEMORY=134217728 export EXPORTED_FUNCTIONS=&quot;[ \ &apos;_avcodec_register_all&apos;, \ &apos;_avcodec_find_decoder&apos;, \ &apos;_avcodec_alloc_context3&apos;, \ &apos;_avcodec_open2&apos;, \ &apos;_av_free&apos;, \ &apos;_av_frame_alloc&apos;, \ &apos;_avcodec_close&apos;, \ &apos;_avcodec_decode_video2_js&apos;, \ &apos;_avcodec_get_image_width_js&apos;, \ &apos;_avcodec_get_image_height_js&apos;, \ &apos;_avcodec_get_chroma_format_js&apos;, \ &apos;_avcodec_get_image_plane_js&apos;, \ &apos;_avcodec_get_image_pitch_js&apos;, \ &apos;_avcodec_get_image_bit_depth_js&apos;, \ &apos;_avcodec_close_AVCodecContext_js&apos;, \ &apos;_avcodec_flush_buffers&apos;, \ &apos;_imgScaleChange_js&apos;, \ &apos;_drawRect_js&apos;, \ &apos;_setPrivacyMaskRect_js&apos;, \ &apos;_setFullRectGrids_js&apos;, \ &apos;_setMotionRectGrids_js&apos; ]&quot; echo &quot;Running Emscripten...&quot; emcc dist/lib/libavcodec.a dist/lib/libavutil.a dist/lib/libswscale.a \ -O3 \ -s WASM=1 \ -s TOTAL_MEMORY=${TOTAL_MEMORY} \ -s EXPORTED_FUNCTIONS=&quot;${EXPORTED_FUNCTIONS}&quot; \ -o libffmpeg.js echo &quot;Finished Build&quot; echo &quot;cp libffmpeg.wasm libffmpeg.js /home/yy/nfsfile/ipc_www_both/www/libffmpeg/&quot; cp libffmpeg.wasm libffmpeg.js /home/yy/nfsfile/ipc_www_both/www/libffmpeg/ cp libffmpeg.wasm libffmpeg.js /home/yy/nfsfile/newWebH5player/lib/ 三、在js中调用API上述编译脚本涉及的API中函数后缀名有_js的是我自己封装的接口，其他的是ffmpeg原生接口，API一共有： avcodec_register_all, avcodec_find_decoder, avcodec_alloc_context3, avcodec_open2, av_free, av_frame_alloc, avcodec_close, avcodec_decode_video2_js, avcodec_get_image_width_js, avcodec_get_image_height_js, avcodec_get_chroma_format_js, avcodec_get_image_plane_js, avcodec_get_image_pitch_js, avcodec_get_image_bit_depth_js, avcodec_close_AVCodecContext_js, avcodec_flush_buffers, imgScaleChange_js, drawRect_js, setPrivacyMaskRect_js, setFullRectGrids_js, setMotionRectGrids_js&apos; 3.1 C语言中的函数声明void avcodec_register_all(void); AVCodec *avcodec_find_decoder(enum AVCodecID id); AVCodecContext *avcodec_alloc_context3(const AVCodec *codec); int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **options); void av_free(void *ptr); AVFrame *av_frame_alloc(void); int avcodec_close(AVCodecContext *avctx); int avcodec_decode_video2_js(AVCodecContext *avctx, AVFrame *picture, const uint8_t *avpkt_data,const int avpkt_size); const int avcodec_get_image_width_js(const AVFrame *picture); const int avcodec_get_image_height_js(const AVFrame *picture); const int avcodec_get_chroma_format_js(const AVFrame *picture); const uint8_t* avcodec_get_image_plane_js(const AVFrame *picture, int channel); const int avcodec_get_image_pitch_js(const AVFrame *picture, int channel); const int avcodec_get_image_bit_depth_js(const AVFrame *picture); void avcodec_close_AVCodecContext_js(AVCodec *m_codec,AVCodecContext *m_context); void avcodec_flush_buffers(AVCodecContext *avctx); int imgScaleChange_js(AVCodecContext *pCodecCtx,AVFrame *src_pic,AVFrame *dst_pic,AVFrame *pad_pic,int nDstW ,int nDstH,int keep_scale ); int drawRect_js(int drawRectX1,int drawRectY1,int drawRectX2,int drawRectY2,unsigned long drawRectRgb); int setPrivacyMaskRect_js(int x1,int y1,int w1,int h1,unsigned long rgb1, int x2,int y2,int w2,int h2,unsigned long rgb2, int x3,int y3,int w3,int h3,unsigned long rgb3, int x4,int y4,int w4,int h4,unsigned long rgb4); int setFullRectGrids_js(int gridsColumns,int gridsRows,int fullGridsRgb,int fullGridsEnable); int setMotionRectGrids_js(int gridsColumns,int gridsRows,int motionGridsRgb,unsigned char *motionBlocks); 3.2 JS的调用3.2.1 导入libffmpeg.js（libffmpeg.js中会去加载libffmpeg.wasm的） importScripts(&apos;libffmpeg.js&apos;); 3.2.2 接口封装括号内的参数中，第一个number对应C函数的返回值，最后面的[]的成员对应C函数的参数。 参数数据类型number可以对应C语言中的int或是指针等，大部分都是number。 参数数据类型array是js中的数组，对应到C函数参数中也是指针，我使用的是unsigned char* array与number不同的是，array传递到C函数中，可以通过这个指针地址取到传递过来的数组的数据。而number传递过来只是一个数字，即使转成指针地址也取不到数组内容的数据。 (function(){ var libffmpeg = { avcodec_register_all: Module[&quot;cwrap&quot;](&apos;avcodec_register_all&apos;, &apos;number&apos;), avcodec_find_decoder: Module[&quot;cwrap&quot;](&apos;avcodec_find_decoder&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_alloc_context3: Module[&quot;cwrap&quot;](&apos;avcodec_alloc_context3&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_open2: Module[&quot;cwrap&quot;](&apos;avcodec_open2&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;number&apos;]), av_free: Module[&quot;cwrap&quot;](&apos;av_free&apos;, &apos;number&apos;, [&apos;number&apos;]), av_frame_alloc: Module[&quot;cwrap&quot;](&apos;av_frame_alloc&apos;, &apos;number&apos;), avcodec_close: Module[&quot;cwrap&quot;](&apos;avcodec_close&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_decode_video2_js: Module[&quot;cwrap&quot;](&apos;avcodec_decode_video2_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;array&apos;, &apos;number&apos;]), avcodec_get_image_width_js: Module[&quot;cwrap&quot;](&apos;avcodec_get_image_width_js&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_get_image_height_js: Module[&quot;cwrap&quot;](&apos;avcodec_get_image_height_js&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_get_chroma_format_js: Module[&quot;cwrap&quot;](&apos;avcodec_get_chroma_format_js&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_get_image_plane_js: Module[&quot;cwrap&quot;](&apos;avcodec_get_image_plane_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;]), avcodec_get_image_pitch_js: Module[&quot;cwrap&quot;](&apos;avcodec_get_image_pitch_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;]), avcodec_get_image_bit_depth_js: Module[&quot;cwrap&quot;](&apos;avcodec_get_image_bit_depth_js&apos;, &apos;number&apos;, [&apos;number&apos;]), avcodec_close_AVCodecContext_js:Module[&quot;cwrap&quot;](&apos;avcodec_close_AVCodecContext_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;]), avcodec_flush_buffers: Module[&quot;cwrap&quot;](&apos;avcodec_flush_buffers&apos;, &apos;number&apos;, [&apos;number&apos;]), imgScaleChange_js: Module[&quot;cwrap&quot;](&apos;imgScaleChange_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;]), drawRect_js: Module[&quot;cwrap&quot;](&apos;drawRect_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;]), setPrivacyMaskRect_js: Module[&quot;cwrap&quot;](&apos;setPrivacyMaskRect_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;]), setFullRectGrids_js: Module[&quot;cwrap&quot;](&apos;setFullRectGrids_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;number&apos;]), setMotionRectGrids_js: Module[&quot;cwrap&quot;](&apos;setMotionRectGrids_js&apos;, &apos;number&apos;, [&apos;number&apos;, &apos;number&apos;, &apos;number&apos;, &apos;array&apos;]), AV_CODEC_ID_H264: 28, AV_CODEC_ID_H265: 174, // 0x48323635, _chroma_mono: 0, _chroma_420: 1, _chroma_422: 2, _chroma_444: 3, }; 3.2.3 封装好的libffmpeg js接口的使用示例libffmpeg.avcodec_register_all(); var m_codec = libffmpeg.avcodec_find_decoder(AV_CODEC_ID); var img = libffmpeg.avcodec_decode_video2_js(this.m_context, this.m_src_pic, data, size); var w = libffmpeg.avcodec_get_image_width_js(m_pic); libffmpeg.setMotionRectGrids_js(gridsColumns,gridsRows,motionGridsRgb,motionBlocks); 这里就不一一列举了，封装好的js接口可直接像平常的js函数那样使用。 至此，JS如何调用WebAssembly的api就讲完了。]]></content>
+      <categories>
+        <category>Web</category>
+      </categories>
+      <tags>
+        <tag>Web</tag>
+        <tag>HTML5</tag>
+        <tag>Javascript</tag>
+        <tag>WebAssembly</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[使用emscripten编译WebAssembly]]></title>
+    <url>%2F2018%2F03%2F04%2Fwebassembly__emscripten_build_wasm%2F</url>
+    <content type="text"><![CDATA[需要编译的c语言demo程序add.c #include &lt;stdio.h&gt; int add(int a,int b) { return a+b; } int main(void) { printf(&quot;%d\n&quot;,add(1,2)); } 1、可以编译成带有html输出文件，可以直接打开html文件查看效果 emcc add.c -s WASM=1 -o add.html 其中-s WASM=1一定要加，否则默认生成的文件不是*.wasm而是js文件 2、大部分情况建议不输出html文件，直接生成wasm文件和js文件。生成的js文件中有调用WebAssembly的接口，我们只需要调用js文件的接口即可。 emcc add.c -s WASM=1 -s SIDE_MODULE=1 -o add.js 3、如果想自己写js调用WebAssembly，有多种方法，其中一种如下： &lt;script&gt; fetch(&apos;add.wasm&apos;).then(res =&gt; res.arrayBuffer() ).then(buf =&gt; { let m_buf = new Uint8Array(buf); let api = Wasm.instantiateModule(m_buf); console.log(&quot;123+1024=&quot;,api.exports.add(123,1024)); }); &lt;/script&gt;]]></content>
+      <categories>
+        <category>WebAssembly</category>
+      </categories>
+      <tags>
+        <tag>WebAssembly</tag>
+        <tag>emscripten</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[WebAssembly wabt工具安装和使用]]></title>
+    <url>%2F2018%2F03%2F03%2Fwebassembly__wabt_tools%2F</url>
+    <content type="text"><![CDATA[emscripten编译生成的WebAssembly文件是*.wasm的二进制文件，不方便阅读。 使用wabt工具，可以实现wasm与wast的互转，有助于理解wasm内部接口。 wasm是二进制文件，可读性很差。wast是文本文件，可以看到wasm的内部接口。 ###下载 https://github.com/WebAssembly/wabt ###安装 略。根据readme安装。 ###使用 wast2wasm demo.wast -o demo.wasm wasm2wast demo.wasm -o demo.wast]]></content>
+      <categories>
+        <category>WebAssembly</category>
+      </categories>
+      <tags>
+        <tag>WebAssembly</tag>
+        <tag>wabt</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[WebAssembly emscripten工具链的搭建]]></title>
+    <url>%2F2018%2F03%2F03%2Fwebassembly__emscripten_tools%2F</url>
+    <content type="text"><![CDATA[emscripten有多个版本，这里安装的是WebAssembly需要的版本。 需要提前安装gcc、cmake、Python、node.js等，这些请自行安装。 开始安装emscripten： 下载wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gz tar xvf emsdk-portable.tar.gz cd emsdk-portable 更新版本./emsdk update 安装./emsdk install clang-incoming-64bit emscripten-incoming-64bit sdk-incoming-64bit binaryen-master-64bit ./emsdk activate clang-incoming-64bit emscripten-incoming-64bit sdk-incoming-64bit binaryen-master-64bit 环境变量设置source ./emsdk_env.sh emscripten的安装过程需要边安装边在线下载很多文件，时间会很久。]]></content>
+      <categories>
+        <category>WebAssembly</category>
+      </categories>
+      <tags>
+        <tag>WebAssembly</tag>
+        <tag>emscripten</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[WebAssembly简介]]></title>
+    <url>%2F2018%2F03%2F03%2Fwebassembly__introduction%2F</url>
+    <content type="text"><![CDATA[什么是WebAssembly虽然WebAssembly从名字翻译来说是web版的汇编语言，但是其实是一个二进制文件。与asm.js相比之下，asm.js更像是web版的汇编语言，WebAssembly是web版的二进制语言，效率更高。二者的编译工具链都是从emscripten编译而来，但是编译方法有所区别。具体在环境搭建中介绍。 哪些浏览器支持WebAssemblyWebAssembly是一项比较新的技术，属于HTML5标准中的一部分，现在很多浏览器的最新版本已经支持了。由于项目需要，经测试发现以下版本浏览器及其更新的版本支持此功能。 PC机： 1、Firefox 2017.09 2、Chrome 62.0.3202.94 3、Opera 49.0.2725.34 4、Safari 11 (Mac OSX 10.12.6) 5、Edge 41.16299.15.0 (windows10 1709) 手机： 1、Chrome 62.0.3202.84 2、Firefox 57.0 3、Opera beta 44.0.2246.122450 4、Safari 11 (iOS 11.0) IE浏览器不支持WebAssembly，微软已经让Edge支持WebAssembly了，是否还会另外开发IE浏览器的WebAssembly不得而知。 需要注意的是，很多国产浏览器的内核都是使用上述浏览器的内核的，而且内核的版本不是最新的，所以国产浏览器若要支持此功能就得等更新内核版本了。]]></content>
+      <categories>
+        <category>WebAssembly</category>
+      </categories>
+      <tags>
+        <tag>WebAssembly</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[ejs模板基础用法]]></title>
+    <url>%2F2018%2F03%2F03%2Fnodejs__ejs_usage_note%2F</url>
+    <content type="text"><![CDATA[前言ejs是适合在node.js中生成动态页面的模板，可以根据后端数据库中的数据按照一定逻辑处理渲染页面。 其实静态html页面配合js，js通过http获取后端数据后也能动态渲染页面。但是这样是有缺点的。 静态页面+js 的缺点： 不安全。把后端数据库的内容通过http发到前端进行解析再渲染页面，http接口容易被盗用，后端数据库数据被盗。 不流畅。整个页面的渲染分2步，先加载页面文件然后js再通过http获取数据渲染页面，2步之间存在一定间隔。 使用动态页面生成模板则可以避免这些缺点，页面文件在后端直接动态生成。 常用标签 &lt;% %&gt; 流程控制标签，可以嵌入js &lt;%= %&gt; 输出标签（原文输出HTML标签） &lt;%- %&gt; 输出标签（HTML会被浏览器解析） &lt;%# %&gt; 注释标签 % 对标记进行转义 -%&gt; 去掉没用的空格 &lt;%include %&gt; 包含文件 示例node.js中调用方法： exports.index = function(req, res) { res.render(&apos;website/index/index&apos;,{show_msg:1,msg1:&quot;111&quot;,msg2:&quot;222&quot;}); } 1、&lt;%= %&gt;与&lt;%- %&gt;&lt;%=hello%&gt; 会在html页面上显示hello &lt;%-hello%&gt; 会在html页面上显示hello &lt;%=&lt;input type=&quot;text&quot; /&gt;%&gt; 会在html页面上显示字符串&lt;input type=&quot;text&quot; /&gt; &lt;%=&lt;input type=&quot;text&quot; /&gt;%&gt; 会在html页面上显示一个输入框 2、 &lt;% %&gt;&lt;%if(hello==1){%>]]></content>
+      <categories>
+        <category>Node.js</category>
+      </categories>
+      <tags>
+        <tag>Node.js</tag>
+        <tag>ejs</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[node.js网站依赖包安装方法]]></title>
+    <url>%2F2018%2F03%2F03%2Fnodejs__nodejs_package_install%2F</url>
+    <content type="text"><![CDATA[需要安装的包在package.json文件中，根据此文件使用npm安装 查看已经安装的包的列表npm list npm list -g 查看已安装的某个包的版本npm list XXX 安装某个包的最新版本npm install XXX npm install XXX -g 安装某个包的指定版本x.x.xnpm install XXX@x.x.x npm install XXX@x.x.x -g 删除某个已安装的包npm uninstall XXX npm uninstall XXX -g 需要安装的版本（我的项目中使用的版本）不同版本可能存在部分接口差异，建议按照相关的版本安装 node.js v7.5.0 npm 4.1.2 其他 按照package.json中指定的版本]]></content>
+      <categories>
+        <category>Node.js</category>
+      </categories>
+      <tags>
+        <tag>Node.js</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[forever实现node.js应用在后台运行]]></title>
+    <url>%2F2018%2F03%2F03%2Fnodejs__forever_run_nodejs%2F</url>
+    <content type="text"><![CDATA[前段时间使用node.js开发公司网站，是运行在linux系统的，一开始习惯性的认为只要在运行node.js应用的命令后面加&amp;就可以实现后台运行，如 node app.js &amp;，但是结果关闭终端时进程就被退出了。最终发现了forever可以实现node.js的后台运行维护，而且万一程序出错进程退出时还可以重新被拉起来。 一、安装 npm install -g forever 二、运行 forever start -s app.js 其他参数请查看help forever --help]]></content>
+      <categories>
+        <category>Node.js</category>
+      </categories>
+      <tags>
+        <tag>Node.js</tag>
+        <tag>forever</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[mongodb数据库导出与导入]]></title>
+    <url>%2F2018%2F03%2F03%2Fmongodb__mongodb_dump_restore%2F</url>
+    <content type="text"><![CDATA[导出命令格式： mongodump -h dbhost -d dbname -o dbdirectory 参数说明： -h： 数据库服务器地址，端口一般是27017 -d： 需要导出的数据库实例名称 -o： 导出的路径 示例： mongodump -h 127.0.0.1:27017 -d test -o /data/mongodb_bak/ 导入命令格式： mongorestore -h dbhost -d dbname --dir dbdirectory 参数说明： -h： 数据库服务器地址，端口一般是27017 -d： 导入后的数据库实例名称 --dir： 需要导入的数据的路径 --drop： 添加此参数，表示导入时如果已存在-d指定的数据库实例，会先删除原有的数据再导入 示例： mongorestore -h 127.0.0.1:27017 -d test --dir /data/mongodb_bak/test/ --drop]]></content>
+      <categories>
+        <category>Mongodb</category>
+      </categories>
+      <tags>
+        <tag>Mongodb</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[node.js中如何使用mongodb数据库]]></title>
+    <url>%2F2018%2F03%2F03%2Fnodejs__nodejs_use_mongodb%2F</url>
+    <content type="text"><![CDATA[本文介绍node.js项目中mongodb数据库的使用方法，相关目录结构是项目中的目录。 数据库使用mongodb mongodb的服务端的安装方法是在ubuntu执行apt-get instal mongodb，安装成功之后执行/etc/init.d/mongodb start启动。 nodejs中需要添加的组件是mongoose，里面内置了mongodb客户端的组件。 目录文件 /config/mongoose.js 调用数据库的入口，连接数据库 /config/db_url.js 数据库的地址 /model/ 封装数据库数据模型 数据库的API1、/config/db_url.js中指定数据库地址 module.exports={ mongodb:&quot;mongodb://localhost/company_website&quot; } 2、/model/目录中各个js文件定义数据库的数据模型，如demo.js var mongoose=require(&apos;mongoose&apos;); //新建模型 var demo=new mongoose.Schema({ username:String, password:String, status:String }); //对外封装属性接口 mongoose.model(&apos;Demo&apos;,demo); 3、/config/mongoose.js中调用/config/db_url.js，并连接数据库，加载数据库数据模型 var mongoose=require(&apos;mongoose&apos;); var config=require(&apos;./db_url.js&apos;); //初始化函数 module.exports=function(){ var db=mongoose.connect(config.mongodb); require(&apos;../model/demo.js&apos;); return db; } 4、在app.js中调用/config/mongoose.js开始初始化数据库连接 var mongoose=require(&apos;./config/mongoose.js&apos;); //初始化 var db=mongoose(); 5、数据库查询/增加/删除，以demo为例 var mongoose=require(&apos;mongoose&apos;); var Demo=mongoose.model(&apos;Demo&apos;); //查询username var username=&quot;admin&quot;; User.findOne({username:username},function(err,doc){ if(err){ console.log(&apos;error&apos;); } else if(doc==null){ console.log(&apos;not exist&apos;); } else{ //修改查询到的对象的属性 doc.status=&apos;1&apos;; doc.save(function(err){ if(err){ console.log(&apos;error&apos;); }else{ console.log(&apos;success&apos;); } }) } }); //创建demo对象 var demo=new Demo( { username:username, password:password, status:&apos;0&apos; } ); Demo.create(demo,function(err,doc){ if(err){ console.log(&apos;error&apos;); } console.log(&apos;success&apos;); }); //删除对象 var id=&quot;xxxx&quot;; Demo.remove({_id:id},function(err,doc){ if(err){ console.log(&apos;error&apos;); }else{ console.log(&apos;success&apos;); } });]]></content>
+      <categories>
+        <category>Node.js</category>
+        <category>Mongodb</category>
+      </categories>
+      <tags>
+        <tag>Node.js</tag>
+        <tag>Mongodb</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[flv的格式]]></title>
+    <url>%2F2018%2F03%2F03%2Frtmp__flv_format%2F</url>
+    <content type="text"><![CDATA[flv封装单元是以tag来表示的，一个tag可以是音频tag或者视频tag，或者脚本tag及其其他类型。 一、flv的格式 flvheader 脚本tag(metadata) 第一个视频tag(h264_spspps) 第一个音频tag(aac_header) 第二个视频tag(h264第一个关键帧) 后面就是音频和视频tag交互存在 … 二、tag的格式： [TYPE] (1byte) [body size] (3byte) [timestamp] (4byte) [stream ID] (3byte) [body data] [previousTagSize] (4byte) 三、flv header文件头由 9 bytes 组成 [1-3] 前3个 bytes 是文件类型，总是“FLV”，也就是（0x46 0x4C 0x56）。 [4] 第4 btye 是版本号，目前一般是 0x01。 [5] 第5 byte 是流的信息：倒数第一 bit 是1表示有视频（0x01），倒数第三 bit 是1表示有音频（0x4），有视频又有音频就是 0x01 | 0x04（0x05），其他都应该是0。 [6-9] 最后 4 bytes 表示 FLV 头的长度，3+1+1+4 = 9。 四、flv body由若干个 tag (tag header+tag data)组成 [4 bytes 记录着上一个 tag 的长度]+[11 bytes的tag header]+[tag data] 4.1 tag header [1] 第1个 byte 为记录着 tag 的类型，音频（0x8），视频（0x9），脚本（0x12）； [2-4] 第2到4 bytes 是数据区的长度，也就是 tag data 的长度； [5-7] 再后面3个 bytes 是时间戳，单位是毫秒，类型为0x12则时间戳为0； [8] 时间戳后面一个 byte 是扩展时间戳，时间戳不够长的时候用； [9-11] 最后3 bytes 是 streamID，但是总为0 第一个tag的前面没有tag，所以第一个tag前面的previousTagSize就是 00 00 00 00 4.2 tag data4.2.1 脚本tag data该类型 Tag 又通常被称为Metadata(元数据) Tag，会放一些关于 FLV 视频和音频的参数信息，如duration、width、height等。通常该类型 Tag 会跟在 File Header 后面作为第一个 Tag 出现，而且只有一个。 包含两个 AMF 包。AMF（Action Message Format）是 Adobe 设计的一种通用数据封装格式，在Adobe 的很多产品中应用，简单来说，AMF 将不同类型的数据用统一的格式来描述。 第一个 AMF 包封装字符串类型数据，用来装入一个“onMetaData”标志 第二个 AMF 包封装一个数组类型，这个数组中包含了音视频信息项的名称和值 第一个 AMF 包： [1] 第1个字节表示 AMF 包类型，一般总是0x02，表示字符串，其他值表示意义请查阅文档。 [2-3] 第2-3个字节为 UI16 类型值，表示字符串的长度，一般总是 0x000A（“onMetaData”长度）。 [4-…] 后面字节为字符串数据，一般总为“onMetaData”。 第二个AMF包： [1] 第1个字节表示 AMF 包类型，一般总是 0x08，表示数组。 [2-5] 第2-5个字节为 UI32 类型值，表示数组元素的个数。 [6-…] 后面即为各数组元素的封装， 数组元素为元素名称和值组成的对。表示方法如下： [1-2] 第1-2个字节表示元素名称的长度，假设为L。 [3- L+2] 后面跟着为长度为L的字符串。 [L+3] 第L+3个字节表示元素值的类型。 [L+4-…] 后面跟着为对应值，占用字节数取决于值的类型。 4.2.2 音频tag datatag data 如果是音频数据，第一个 byte 记录 audio 信息：前 4 bits 表示音频格式（全部格式请看官方文档）： 0 – 未压缩 1 – ADPCM 2 – MP3 4 – Nellymoser 16-kHz mono 5 – Nellymoser 8-kHz mono 10 – AAC 下面两个 bits 表示 samplerate： 0 – 5.5KHz 1 – 11kHz 2 – 22kHz 3 – 44kHz 下面1 bit 表示采样长度： 0 – snd8Bit 1 – snd16Bit 下面1 bit 表示类型： 0 – sndMomo 1 – sndStereo 之后是数据。 4.2.3 视频tag data如果是视频数据，第一个 byte 记录 video 信息：前4 bits 表示类型： 1 – keyframe 2 – inner frame 3 – disposable inner frame （h.263 only） 4 – generated keyframe 后4 bits 表示解码器 ID： 2 – seronson h.263 3 – screen video 4 – On2 VP6 5 – On2 VP6 with alpha channel 6 – Screen video version 2 7 – AVC (h.264) 之后是数据。 五、实例代码char body[1024] = {0}; char * p = (char *)body; p = put_byte(p, AMF_STRING ); p = put_amf_string(p , &quot;@setDataFrame&quot; ); p = put_byte( p, AMF_STRING ); p = put_amf_string( p, &quot;onMetaData&quot; ); p = put_byte(p, AMF_OBJECT ); p = put_amf_string( p, &quot;title&quot; ); p = put_byte(p, AMF_STRING ); p = put_amf_string( p, &quot;ipc&quot; ); p =put_amf_string( p, &quot;width&quot;); p =put_amf_double( p, lpMetaData-&gt;nWidth); p =put_amf_string( p, &quot;height&quot;); p =put_amf_double( p, lpMetaData-&gt;nHeight); p =put_amf_string( p, &quot;framerate&quot; ); p =put_amf_double( p, lpMetaData-&gt;nFrameRate); p =put_amf_string( p, &quot;videocodecid&quot; ); p =put_amf_double( p, FLV_CODECID_H264 ); p =put_amf_string( p, &quot;&quot; ); p =put_byte( p, AMF_OBJECT_END ); // int index = p-body; SendPacket(RTMP_PACKET_TYPE_INFO,(unsigned char*)body,p-body,0); int i = 0; body[i++] = 0x17; // 1:keyframe 7:AVC body[i++] = 0x00; // AVC sequence header body[i++] = 0x00; body[i++] = 0x00; body[i++] = 0x00; // fill in 0; // AVCDecoderConfigurationRecord. body[i++] = 0x01; // configurationVersion body[i++] = lpMetaData-&gt;Sps[1]; // AVCProfileIndication body[i++] = lpMetaData-&gt;Sps[2]; // profile_compatibility body[i++] = lpMetaData-&gt;Sps[3]; // AVCLevelIndication body[i++] = 0xff; // lengthSizeMinusOne // sps nums body[i++] = 0xE1; //&amp;0x1f // sps data length body[i++] = lpMetaData-&gt;nSpsLen&gt;&gt;8; body[i++] = lpMetaData-&gt;nSpsLen&amp;0xff; // sps data memcpy(&amp;body[i],lpMetaData-&gt;Sps,lpMetaData-&gt;nSpsLen); i= i+lpMetaData-&gt;nSpsLen; // pps nums body[i++] = 0x01; //&amp;0x1f // pps data length body[i++] = lpMetaData-&gt;nPpsLen&gt;&gt;8; body[i++] = lpMetaData-&gt;nPpsLen&amp;0xff; // sps data memcpy(&amp;body[i],lpMetaData-&gt;Pps,lpMetaData-&gt;nPpsLen); i= i+lpMetaData-&gt;nPpsLen; return SendPacket(RTMP_PACKET_TYPE_VIDEO,(unsigned char*)body,i,0);]]></content>
+      <categories>
+        <category>RTMP</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>FLV</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[rtmp信令格式]]></title>
+    <url>%2F2018%2F03%2F03%2Frtmp__rtmp_communication%2F</url>
+    <content type="text"><![CDATA[rtmp以TCP方式推流，分为一个个消息包。 一、握手 握手开始于客户端发送 C0，C1 块。 服务端在发送 S0 和 S1 之前必须等待接收 C0，也可以等待接收 C1。 服务端在发送 S2 之前必须等待接收 C1。 在发送 C2 之前客户端必须等待接收 S1 。 客户端在发送任何数据之前必须等待接收 S2。 服务端在发送任何数据之前必须等待接收 C2。 1、 C0 ： s &lt;= c客户端RTMP的版本号，一个字节，一般是3 rtmp1.0规范所定义的版本是 3；0-2 是早期产品所用的，已被丢弃；4-31保留在未来使用；32-255 不允许使用（为了区分其他以某一字符开始的文本协议）。 如果服务无法识别客户端请求的版本，应该返回 3 。客户端可以选择减到版本 3 或选择取消握手 2、 C1 ： s &lt;= c一共1536字节 4-time + 4-zero + 1528-random 时间：4 字节 本字段包含时间戳。该时间戳应该是发送这个数据块的端点的后续块的时间起始点。可以是 0，或其他的 任何值。为了同步多个流，端点可能发送其块流的当前值。 零：4 字节 本字段必须是全零。 随机数据：1528 字节。 本字段可以包含任何值。 因为每个端点必须用自己初始化的握手和对端初始化的握 手来区分身份，所以这个数据应有充分的随机性。但是并不需要加密安全的随机值，或者动态值 3、 S0，S1，S2 : s =&gt; c这里可以一次性把S0，S1,S2 3个都发给客户端。 S0 1 byte (服务端RTMP的版本号)，范围同C0 S1 1536 bytes (4-time + 4-zero + 1528-random)，格式同C1 S2 1536 bytes (4-time + 4-zero + 1528-echo)，是对C1的回复，格式同C2 4、 C2 : s &lt;= c一共1536字节，是对S1的回复 4-time + 4-time2 + 1528-echo 时间：4 字节 本字段必须包含对等段发送的时间（对 C2 来说是 S1，对 S2 来说是 C1）。 时间 2：4 字节 本字段必须包含先前发送的并被对端读取的包的时间戳。 随机回复：1528 字节 本字段必须包含对端发送的随机数据字段（对 C2 来说是 S1，对 S2 来说是 C1） 。 每个对等端可以用时间和时间 2 字段中的时间戳来快速地估计带宽和延迟。 开始推送音视频数据 二、推送音视频数据1、消息格式 [Message Type ID] (1 bytes) [Payload Length] (1 bytes) [Time Stamp] (1 bytes) [Stream ID] (1 bytes) [Message Body] [Message Type ID][Payload Length][Time Stamp][Stream ID] 这四部分称为 Message Header。 Message Type ID： 在1-7的消息用于协议控制，这些消息一般是RTMP协议自身管理要使用的消息，用户一般情况下无需操作其中的数据。Message Type ID为8，9的消息分别用于传输音频和视频数据。Message Type ID为15-20的消息用于发送AMF编码的命令，负责用户与服务器之间的交互，比如播放，暂停等等。 Payload Length： 负载的长度 Time Stamp： 时间戳 Stream ID： 流的ID 2、消息块拆包一帧数据有时候会很大，比如几十M甚至更大。但是为了方便在网络上传输，需要把数据拆分成一个个较小的块，这里称之为消息块（Chunk）。 [Chunk Basic Header] [Chunk Message Header] [Extended TimeStamp] [Chunk Data] [Chunk Basic Header][Chunk Message Header][Extended TimeStamp] 称之为 Chunk Header。 2.1 Chunk Basic HeaderHeader Type + Channel ID (一共1-3个字节) 2.1.1 Header Type (FMT)第一个字节的高2位决定[Chunk Message Header]的长度 00 12 bytes 01 8 bytes 10 4 bytes 11 1 byte 2.1.2 Channel ID 02 Ping 和ByteRead通道 03 Invoke通道 我们的connect() publish()和自字写的NetConnection.Call() 数据都是在这个通道的 04 Audio和Vidio通道 05 06 07 服务器保留,经观察FMS2用这些Channel也用来发送音频或视频数据 计算公式如下： /** * data : Basic Header Data * fmt : Header Type * cid : Channel ID * return : Basic Header Data Length */ int rtmp_chunk_basic_header_read(const uint8_t* data, uint8_t* fmt, uint32_t* cid) { *fmt = data[0] &gt;&gt; 6; *cid = data[0] &amp; 0x3F; if (0 == *cid) { *cid = 64 + (uint32_t)data[1]; return 2; } else if (1 == *cid) { *cid = 64 + (uint32_t)data[1] + ((uint32_t)data[2] &lt;&lt; 8) /* 256 */; return 3; } else { return 1; } } 2.2 Chunk Message Header以最大fmt =00 length(Chunk Message Header) == 12 为例Chunk Message Header的结构是: timestamp + message_length + message_type + msg_stream_id 其中message_type是一个枚举变量： type为1,2,3,5,6的时候是协议控制消息 type为4的时候表示 User Control Messages [Event_type + Event_Data] Event_type有Stream Begin，Stream End… type为8，音频数据 type为9，视频数据 type为18 元数据消息[AMF0] type为20 命令消息 Command Message(RPC Message) These messages are sent to perform some operations like connect, createStream, publish, play, pause on the peer. 命令消息主要分成两种NetConnection和NetStream。 connect，call，close，createStream命令可以在NetConnection中发送。coonect(name，TranscationID,Command Object pair),play，publish,seek,pause等命令可以在NetStream中发送。 2.3 Extended TimeStamp时间戳 2.3 Chunk Data块数据，接收方把块数据组合成完整的一帧flv tag数据]]></content>
+      <categories>
+        <category>RTMP</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>RTMP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[jrtplib的使用]]></title>
+    <url>%2F2018%2F03%2F03%2Frtsprtp__jrtplib_usage_note%2F</url>
+    <content type="text"><![CDATA[简介jrtplib是用C++开发的rtp/rtcp库，非常方便嵌入到C++工程中，可用于rtsp server或rtsp client的开发之中，或者其他以rtp/rtcp格式的推流与收流。 初始化示例代码： RTPSession rtp_session; unsigned short rtp_port = 6666; unsigned int payload_type = 96; //以H264为例 const std::string dst_ip = &quot;224.124.1.101&quot;; unsigned short dst_port = 8856; int status = 0; RTPUDPv4TransmissionParams transparams; RTPSessionParams sessparams; sessparams.SetOwnTimestampUnit(1.0/25.0);//必须设置 transparams.SetPortbase(rtp_port);//rtp_port必须是偶数 base_type::SetDefaultPayloadType(payload_type); // 创建，成功返回0 status = rtp_session.Create(sessparams, &amp;transparams); // 添加目标地址与端口，成功返回0 status = rtp_session.AddDestination( RTPIPv4Address(ntohl(inet_addr(dst_ip.c_str()),dst_port) ); 发送示例代码： unsigned char* packetData; unsigned int packetDataSize; unsigned int payload_type = 96; //以H264为例 unsigned int timestamp; //时间戳 bool end_mark = true; //结束标志，当分片发送时，最后一篇true，其他的false，当单发送nal时为true int status = 0; status = rtp_session.SendPacket(PacketData,packetDataSize,payload_type,end_mark,timestamp); 接收示例代码： //num循环的次数 for (i = 1 ; i &lt;= num ; i++) { rtp_session.BeginDataAccess(); if (rtp_session.GotoFirstSourceWithData()) { do { RTPPacket *pack; while ((pack = rtp_session.GetNextPacket()) != NULL) { /* 收到的数据在pack中 */ //释放pack rtp_session.DeletePacket(pack); } } while (rtp_session.GotoNextSourceWithData()); } rtp_session.EndDataAccess(); //等待 RTPTime::Wait(RTPTime(1,0)); } 移除目标地址和端口示例代码： status = rtp_session.DeleteDestination( RTPIPv4Address(ntohl(inet_addr(dst_ip.c_str()),dst_port) ); 释放示例代码： //void BYEDestroy(const RTPTime &amp;maxwaittime,const void *reason,size_t reasonlength); rtp_session.BYEDestroy(RTPTime(10,0),0,0); 为更方便的使用，新建了RTPSessionUtils.cpp和RTPSessionUtils.h，把jrtp接口再封装一遍。 RTPSessionUtils.h #include &quot;rtpsession.h&quot; #include &quot;rtppacket.h&quot; #include &quot;rtpudpv4transmitter.h&quot; #include &quot;rtpipv4address.h&quot; #include &quot;rtpsessionparams.h&quot; #include &quot;rtperrors.h&quot; #ifndef WIN32 #include &lt;netinet/in.h&gt; #include &lt;arpa/inet.h&gt; #else #include &lt;winsock2.h&gt; #endif // WIN32 #include &quot;rtpsourcedata.h&quot; #include &lt;stdlib.h&gt; #include &lt;stdio.h&gt; #include &lt;iostream&gt; #include &lt;string&gt; //jrtplib应用需链接的lib #pragma comment(lib,&quot;ws2_32.lib&quot;) #pragma comment(lib, &quot;jrtplib_d.lib&quot;) #pragma comment(lib,&quot;jthread_d.lib&quot;) namespace jrtplib { class RTPSessionUtils : public RTPSession { typedef RTPSession base_type; public: RTPSessionUtils(); ~RTPSessionUtils(); int AddDestination(const std::string&amp; ip, uint16_t port); int DeleteDestination(const std::string&amp; ip, uint16_t port); int CreateDefault(uint16_t port); protected: void OnNewSource(RTPSourceData *dat); void OnBYEPacket(RTPSourceData *dat); void OnRemoveSource(RTPSourceData *dat); void OnRTPPacket(RTPPacket *pack,const RTPTime &amp;receivetime, const RTPAddress *senderaddress); void OnRTCPCompoundPacket(RTCPCompoundPacket *pack,const RTPTime &amp;receivetime, const RTPAddress *senderaddress); void OnPollThreadStep(); private: int GetAddrFromSource(RTPSourceData *dat, uint32_t&amp; ip, uint16_t&amp; port); }; } //整形的ip转成字符串ip static std::string IPToString(const unsigned int iIP) { struct in_addr inaddr; inaddr.s_addr = htonl(iIP); return std::string(inet_ntoa(inaddr)); } //字符串ip转成整形ip static unsigned int IPToInt(const std::string&amp; sIP) { return inet_addr(sIP.c_str()); } RTPSessionUtils.cpp #include &quot;RTPSessionUtils.h&quot; namespace jrtplib{ RTPSessionUtils::RTPSessionUtils() { #ifdef WIN32 WSADATA dat; WSAStartup(MAKEWORD(2,2),&amp;dat); #endif // WIN32 } RTPSessionUtils::~RTPSessionUtils() { #ifdef WIN32 WSACleanup(); #endif // WIN32 } int RTPSessionUtils::CreateDefault(uint16_t port) { RTPUDPv4TransmissionParams transparams; RTPSessionParams sessparams; //sessparams.SetAcceptOwnPackets(true); sessparams.SetOwnTimestampUnit(1.0/25.0);//必须设置 transparams.SetPortbase(port);//port必须是偶数 base_type::SetDefaultPayloadType(96); return base_type::Create(sessparams, &amp;transparams); base_type::SetDefaultPayloadType(96); base_type::SetDefaultTimestampIncrement(0); base_type::SetDefaultMark(false); } int RTPSessionUtils::AddDestination(const std::string&amp; ip, uint16_t port) { return base_type::AddDestination(RTPIPv4Address(ntohl(inet_addr(ip.c_str())), port)); } int RTPSessionUtils::DeleteDestination(const std::string&amp; ip, uint16_t port) { return base_type::DeleteDestination(RTPIPv4Address(ntohl(inet_addr(ip.c_str())), port)); } int RTPSessionUtils::GetAddrFromSource(RTPSourceData *dat, uint32_t&amp; ip, uint16_t&amp; port) { if (dat-&gt;IsOwnSSRC()) return -1; if (dat-&gt;GetRTPDataAddress() != 0) { const RTPIPv4Address *addr = (const RTPIPv4Address *)(dat-&gt;GetRTPDataAddress()); ip = addr-&gt;GetIP(); port = addr-&gt;GetPort(); } else if (dat-&gt;GetRTCPDataAddress() != 0) { const RTPIPv4Address *addr = (const RTPIPv4Address *)(dat-&gt;GetRTCPDataAddress()); ip = addr-&gt;GetIP(); port = addr-&gt;GetPort()-1; } return 0; } void RTPSessionUtils::OnNewSource(RTPSourceData *dat) { uint32_t ip; uint16_t port; if (GetAddrFromSource(dat, ip, port)) return; RTPIPv4Address dest(ip,port); base_type::AddDestination(dest); std::cout &lt;&lt; &quot;OnNewSource Adding destination &quot; &lt;&lt; IPToString(ip) &lt;&lt; &quot;:&quot; &lt;&lt; port &lt;&lt; std::endl; } void RTPSessionUtils::OnRemoveSource(RTPSourceData *dat) { if (dat-&gt;ReceivedBYE()) return; uint32_t ip; uint16_t port; if (GetAddrFromSource(dat, ip, port)) return; RTPIPv4Address dest(ip,port); base_type::DeleteDestination(dest); std::cout &lt;&lt; &quot;OnRemoveSource Deleting destination &quot; &lt;&lt; IPToString(ip) &lt;&lt; &quot;:&quot; &lt;&lt; port &lt;&lt; std::endl; } void RTPSessionUtils::OnBYEPacket(RTPSourceData *dat) { uint32_t ip; uint16_t port; if (GetAddrFromSource(dat, ip, port)) return; RTPIPv4Address dest(ip,port); base_type::DeleteDestination(dest); std::cout &lt;&lt; &quot;OnBYEPacket Deleting destination &quot; &lt;&lt; IPToString(ip) &lt;&lt; &quot;:&quot; &lt;&lt; port &lt;&lt; std::endl; } //只要有rtp包就会触发 void RTPSessionUtils::OnRTPPacket(RTPPacket *pack,const RTPTime &amp;receivetime, const RTPAddress *senderaddress) { std::cout &lt;&lt; &quot;OnRTPPacket: data:&quot; &lt;&lt; pack-&gt;GetPayloadData() &lt;&lt; std::endl; } //收到rtcp包触发 void RTPSessionUtils::OnRTCPCompoundPacket(RTCPCompoundPacket *pack,const RTPTime &amp;receivetime, const RTPAddress *senderaddress) { std::cout &lt;&lt; &quot;OnRTCPCompoundPacket: data:&quot; &lt;&lt; pack-&gt;GetCompoundPacketData() &lt;&lt; std::endl; } //隔段时间就会触发,也可以用于收包回调函数 //void RTPSessionUtils::OnPollThreadStep() //{ // BeginDataAccess(); // // check incoming packets // if (GotoFirstSourceWithData()) // { // do // { // RTPPacket *pack; // RTPSourceData *srcdat; // srcdat = GetCurrentSourceInfo(); // while ((pack = GetNextPacket()) != NULL) // { // std::cout &lt;&lt; &quot;Got packet &quot; &lt;&lt; pack-&gt;GetExtendedSequenceNumber() &lt;&lt; &quot; from SSRC &quot; &lt;&lt; srcdat-&gt;GetSSRC() &lt;&lt; std::endl; // DeletePacket(pack); // } // } while (GotoNextSourceWithData()); // } // EndDataAccess(); //} }]]></content>
+      <categories>
+        <category>RTSP/RTP/RTCP</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>RTP</tag>
+        <tag>jrtplib</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[rtp基本封包格式]]></title>
+    <url>%2F2018%2F03%2F03%2Frtsprtp__rtp_format%2F</url>
+    <content type="text"><![CDATA[rtp包易于过大，一般每个包不要超过1400，这里设置为1380，即DEFAULT_MTU=1380 这里介绍的媒体格式有视频：H264/H265，音频：AAC 1、如果媒体包小于DEFAULT_MTU时可直接写入rtp包中,示例代码：unsigned char *pNAL; //媒体数据包 int nalsize; //媒体数据包长度 uint32_t timestamp； //时间戳 // RTPSession rtp_session; /* H264、H265 */ // 以jrtplib以为发送H264/H265视频数据的rtp包，成功时返回值是0 rtp_session.SendPacket(PacketData,PacketDataSize,96,true,(uint32_t)timestamp); /* AAC */ uint8 aacHeader[4]={0x00,0x10,0x04,0xb8}; aacHeader[2] = nalsize &gt;&gt; 5; aacHeader[3] = (nalsize &amp; 0x1F) &lt;&lt; 3; memcpy(PacketData,aacHeader,sizeof(aacHeader)); memcpy(PacketData+sizeof(aacHeader),pNAL,nalsize); PacketDataSize = nalsize+sizeof(aacHeader); // 以jrtplib以为发送AAC音频数据的rtp包，成功时返回值是0 rtp_session.SendPacket(PacketData,PacketDataSize,97,true,(uint32_t)timestamp); 2、当媒体数据的包长度超过DEFAULT_MTU时需要采用分片封包模式(FUs)，示例代码：unsigned char *pNAL; //媒体数据包 int nalsize; //媒体数据包长度 uint32_t timestamp； //时间戳 unsigned char PacketData[DEFAULT_MTU]; //rtp数据包 uint32_t PacketDataSize = 0; //rtp数据包长度 int rtp_head_size = 0; //计算rtp包头需要的信息 #if H264 || AAC const uint8_t fu_indicator = (pNAL[0] &amp; 0xe0) | 28; const uint8_t fu_header = pNAL[0] &amp; 0x1f; pNAL++; nalsize--; rtp_head_size = 2; #else if H265 const uint8_t payloadhdr[2]={(pNAL[0]&amp;0x81)|(49&lt;&lt;1),pNAL[1]}; const uint8_t fu_header = (pNAL[0] &amp; 0x7E)&gt;&gt;1; pNAL+=2; nalsize-=2; rtp_head_size = 3; #endif //计算需要拆分的片数 uint32_t FU_size = 0; if((nalsize % (DEFAULT_MTU-rtp_head_size))!=0) FU_size=nalsize / (DEFAULT_MTU-rtp_head_size) +1; else FU_size=nalsize / (DEFAULT_MTU-rtp_head_size); int start = true; //第一个分片标记 bool end_mask = false; //最后一个分片标志 while(nalsize&gt;0){ const uint32_t fraglen = MIN(DEFAULT_MTU-rtp_head_size, nalsize); PacketDataSize = fraglen+rtp_head_size; #if H264 || AAC PacketData[0]=fu_indicator; //rtp包第一个字节 PacketData[1]=fu_header; //rtp包第二个字节 #else if H265 PacketData[0]=payloadhdr[0]; //rtp包第一个字节 PacketData[1]=payloadhdr[1]; //rtp包第二个字节 PacketData[2]=fu_header; //rtp包第三个字节 #endif if (start) { //第一个分片需要在最高位需要至1 PacketData[rtp_head_size-1] |= (1&lt;&lt;7); start = false; } if (fraglen == nalsize) { //最后一个分片需要在第2高位需要至1 PacketData[rtp_head_size-1] |= (1&lt;&lt;6); end_mask=true; } memcpy(PacketData+rtp_head_size, pNAL, fraglen); //剩下的数据接在后面 // RTPSession rtp_session; // 以jrtplib以为发送H264/H265视频数据的rtp包，成功时返回值是0 rtp_session.SendPacket(PacketData,PacketDataSize,96,end_mask,(uint32_t)timestamp); // 以jrtplib以为发送AAC音频数据的rtp包，成功时返回值是0 rtp_session.SendPacket(PacketData,PacketDataSize,97,true,(uint32_t)timestamp); //媒体数据包去掉已经发送的部分 nalsize -= fraglen; pNAL += fraglen; }]]></content>
+      <categories>
+        <category>RTSP/RTP/RTCP</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>H264&amp;H265</tag>
+        <tag>RTP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[rtsp基本信令]]></title>
+    <url>%2F2018%2F03%2F03%2Frtsprtp__rtsp_communication%2F</url>
+    <content type="text"><![CDATA[OPTIONS client-&gt;server OPTIONS rtsp://192.168.0.158:554/video_high1080.h264 RTSP/1.0 CSeq: 2 User-Agent: LibVLC/2.2.2 (LIVE555 Streaming Media v2016.01.12) server-&gt;client RTSP/1.0 200 OK CSeq: 2 DESCRIBE这部分属于SDP，描述媒体的格式。 client-&gt;server DESCRIBE rtsp://192.168.0.158:554/video_high1080.h264 RTSP/1.0 CSeq: 3 User-Agent: LibVLC/2.2.2 (LIVE555 Streaming Media v2016.01.12) Accept: application/sdp server-&gt;client RTSP/1.0 200 OK CSeq: 3 Content-Base: rtsp://192.168.0.158:554/video_high1080.h264/ Content-Type: application/sdp Content-Length: 127 v=0 o=- 0 1 IN IP4 0.0.0.0 s=RTSP Server i=video_high1080.h264 t=0 0 a=control:* m=video 0 RTP/AVP 96 a=control:track1 a=rtpmap:96 AVC/9000/2 a=fmtp:96 profile-level-id=%s; packetization-mode=1; sprop-parameter-sets=%s,%s a=fmtp:97 streamtype=5;profile-level-id=1;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3;config=1408&quot; a=rtpmap中的9000是clock_rate，2是音频通道数a=fmtp中profile-level-id=%s是profile_level_id；sprop-parameter-sets后面分别是SPS和PPS的base64 strcpy(SPS_base64_0,base64_encode(h264Sps+4,SpsLen)); strcpy(PPS_base64_0,base64_encode(h264Pps+4,PpsLen)); sprintf(profile_level_id_0,&quot;%02X%02X%02X&quot;,h264Sps[5],h264Sps[6],h264Sps[7]); H265时a=fmtp换成以下格式： a=fmtp:96 packetization-mode=1; profile-space=0;profile-id=1;tier-flag=0;level-id=123;interop-constraints=B00000000000;sprop-vps=%s; sprop-sps=%s; sprop-pps=%s 最后面的3个%s是VPS、SPS、PPS的base64 strcpy(SPS_base64_0,base64_encode(h265Sps+4,SpsLen)); strcpy(PPS_base64_0,base64_encode(h265Pps+4,PpsLen)); strcpy(VPS_base64_0,base64_encode(h265Vps+4,VpsLen)); sprintf(profile_level_id_0,&quot;%02X%02X%02X&quot;,h265Sps[5],h265Sps[6],h265Sps[7]); a=fmtp:97是音频AAC的格式参数 以组播方式时，需要加入以下内容，c=IN IP4后面是组播ip地址和TTL a=type:multicast c=IN IP4 %s/%d SETUP这环节指定取流的方式，TCP/UDP单播/UDP组播，以及端口 client-&gt;server SETUP rtsp://192.168.0.158:554/video_high1080.h264/track1 RTSP/1.0 CSeq: 4 User-Agent: LibVLC/2.2.2 (LIVE555 Streaming Media v2016.01.12) Transport: RTP/AVP;unicast;client_port=49382-49383 SETUP rtsp://192.168.0.158:554/video_high1080.h264/track1 RTSP/1.0 CSeq: 5 User-Agent: LibVLC/2.2.2 (LIVE555 Streaming Media v2016.01.12) Transport: RTP/AVP/TCP;unicast;interleaved=0-1 Transport指定传输的方式: RTP/AVP;unicast是UDP单播，client_port=指定RTP和RTCP的接收端口。 RTP/AVP;multicast是UDP组播，port=指定组播端口。 Transport: RTP/AVP/TCP;unicast指TCP单播，interleaved=指定RTP和RTCP交叉存取的最大通道号， server-&gt;client RTSP/1.0 200 OK CSeq: 5 Session: 93EA048C Transport: RTP/AVP/TCP;unicast;interleaved=0-1 Transport: RTP/AVP;unicast;client_port=%d-%d;source=%s;server_port=%d-%d 第一种Transport是tcp方式，第二种Transport是udp方式。 source是数据源的ip，单播时是server的ip，组播时是组播地址的ip PLAY client-&gt;server PLAY rtsp://192.168.0.158:554/video_high1080.h264/ RTSP/1.0 CSeq: 6 User-Agent: LibVLC/2.2.2 (LIVE555 Streaming Media v2016.01.12) Session: 93EA048C Range: npt=0.000- Range指定播放的时间 server-&gt;client RTSP/1.0 200 OK CSeq: 6 Range: npt=0.000-0.000 RTP-Info: url=rtsp://192.168.0.158:554/video_high1080.h264/track1;seq=0;rtptime=0 TEARDOWN client-&gt;server TEARDOWN rtsp://192.168.0.158:554/video_high1080.h264/ RTSP/1.0 CSeq: 7 User-Agent: LibVLC/2.2.2 (LIVE555 Streaming Media v2016.01.12) Session: 93EA048C server-&gt;client RTSP/1.0 200 OK CSeq: 7]]></content>
+      <categories>
+        <category>RTSP/RTP/RTCP</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>RTSP</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[linux C 嵌套调用.a静态库注意事项]]></title>
+    <url>%2F2018%2F03%2F03%2Fc__linux_c_multiple_static_lib%2F</url>
+    <content type="text"><![CDATA[注意静态库的加载顺序有时嵌套调用静态库，比如在rtmp_server中需要调用到librtmp.a，而在librtmp.a中需要调用到libflv.a，此时需要注意静态库加载的顺序，需要先加载librtmp.a再加载libflv.a。具体如下： 生成静态库 gcc -c -o libflv.o libflv.c ar -rc libflv.a libflv.o gcc -c -o librtmp.o librtmp.c ar -rc librtmp.a librtmp.o 生成rtmp_server.o gcc -c -o rtmp_server.o rtmp_server.c 链接.o和.a生成目标文件 gcc -o rtmp_server rtmp_server.o librtmp.a libflv.a 错误的链接顺序是： gcc -o rtmp_server rtmp_server.o libflv.a librtmp.a 如果先加载libflv.a再加载librtmp.a，会有很多 undefined reference to 的报错，是关于librtmp.a某个地方找不到libflv.a中的某个函数等。我之前也被这个错误困扰了很久，一开始还以为是没有包含头文件呢。更加方便管理 注意C和C++混编的函数声明有时候碰到库使用C编写，而整个应用程序使用C++编写，这就需要涉及到C++程序调用由C编译生成的.a静态库或.so动态库。 在C++中声明C的函数时，需要使用 extern “C” { } ，在{}内部声明。所以在写头文件的时候，需要做好兼容，比如： // hello.h #ifndef __HELLO_H__ #define __HELLO_H__ #ifdef __cplusplus extern &quot;C&quot; { #endif void say_hello(); #ifdef __cplusplus } #endif #endif]]></content>
+      <categories>
+        <category>C/C++</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>C/C++</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[虚拟机ubuntu server 14.04 64bit 根目录扩容]]></title>
+    <url>%2F2018%2F03%2F03%2Flinux__vmware_ubuntu_server_14_add_root_path%2F</url>
+    <content type="text"><![CDATA[###前言 为什么需要扩容？使用VMware Workstation安装linux虚拟机时需要设置虚拟的硬盘空间多大，比如一开始设置为50G，在开发过程渐渐的觉得50G不够用了，这就需要给根目录扩容了，比如扩容到200G。 注意！修改磁盘分区有风险，建议先在虚拟机关机状态备份一份虚拟机文件，再来扩容。万一操作不当把原有的文件给格式化了，还能有备份。 ###一、修改VMware Workstation设置 修改虚拟机的设置，把硬盘改为200G。注意，只完成这一步是不够的，还需要继续完成下面的操作。 ###二、linux终端执行命令 把新增加的150G（200G - 50G）合并到根目录 ####2.1 查看当前磁盘列表 fdisk -l 列表中有以下部分信息（没全部列出）： Disk /dev/sda: 214.7 GB, 214748364800 bytes Device Boot Start End Blocks Id System /dev/sda1 * 2048 499711 248832 83 Linux /dev/sda2 501758 419430399 209464321 5 Extended /dev/sda5 501760 419428351 209463296 8e Linux LVM Disk /dev/mapper/ubuntu14--vg-root: 47.9 GB, 47852814336 bytes 可以看出磁盘/dev/sda已经变成200G多了，但是根目录ubuntu14–vg-root才47.9 GB。大致有150G是未分配的。 ####2.2 增加新分区 fdisk /dev/sda 根据提示输入相应的信息（此时输入m可查看help）： 1、根据提示先输入 n 并回车，表示增加分区 2、再根据提示输入 p 并回车，表示主分区 3、根据提示输入磁盘分区号，我不输入直接回车，默认3 4、输入磁盘分区的起始物理地址，上面sda1、sda2、sda5的最大物理地址是419428351，所以这里我输入419428352，表示新的分区的地址时接在后面的 5、输入磁盘分区的结束物理地址，这里直接回车就好，默认是最末的物理地址，这样能把后面的所有空间全部包含进来 6、输入 w 并回车，开始写分区并退出 ####2.3 再次查看磁盘列表 fdisk -l 发现多了一个磁盘/dev/sda3，但是ubuntu14–vg-root还是47.9 GB ####2.4 重新读取分区表 partprobe /dev/sda ####2.5 格式化分区 mkfs -t ext3 /dev/sda3 ####2.6 新建物理卷 先执行 pvdisplay 发现物理卷还没有刚才新建的sda3，执行以下命令创建 pvcreate /dev/sda3 再执行 pvdisplay 就发现已经有sda3了 ####2.7 把sda3添加到卷组 先执行 vgdisplay 查看卷组，有以下信息 VG Name ubuntu14-vg 卷组名称是ubuntu14-vg，执行以下命令 vgextend ubuntu14-vg /dev/sda3 再执行 vgdisplay 查看，有以下信息 Free PE / Size 39218 / 153.20 GiB 这是free的空间 ####2.8 开始扩容根目录 lvs 信息列表中，VG 有 ubuntu14-vg ，LV 有 root ，这就是要扩容的根目录。执行以下命令 lvextend -L +150G /dev/ubuntu14-vg/root /dev/sda3 resize2fs /dev/ubuntu14-vg/root 支持根目录扩容完毕。可以验证一下。 输入 fdisk -l 结果为： Disk /dev/mapper/ubuntu14--vg-root: 208.9 GB, 208914087936 bytes 输入 df -h 结果为： /dev/mapper/ubuntu14--vg-root 192G 34G 150G 19% / 验证完毕！]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>disk</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[linux nfs挂载]]></title>
+    <url>%2F2018%2F03%2F03%2Flinux__linux_mount_nfs%2F</url>
+    <content type="text"><![CDATA[前言对于嵌入式linux开发而言，这是一个很基础但是很有用的技巧。开发调试过程，可以把PC机linux编译生成的目标文件放到嵌入式linux系统中运行。 安装PC机linux中执行以下操作 sudo apt-get install nfs-kernel-server sudo /etc/init.d/portmap restart 配置vi /etc/exports 添加目录。如： /home/nfsfile *(subtree_check,rw,no_root_squash,async) 重启服务sudo /etc/init.d/nfs-kernel-server restart sudo exportfs -a 挂载的方法在嵌入式linux的终端中执行以下命令，这里的192.168.1.100替换成PC机linux的ip，/tmp/nfsfile根据实际修改为嵌入式linux上的目录 mount -t nfs -o nolock 192.168.1.100:/home/nfsfile /tmp/nfsfile]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>nfs</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[linux临时改变环境变量动态库路径]]></title>
+    <url>%2F2018%2F03%2F03%2Flinux__linux_change_lib_path%2F</url>
+    <content type="text"><![CDATA[前言对于嵌入式linux开发而言，这是一个很基础但是很有用的技巧。嵌入式的linux文件系统一般会设计成只读型，但是在调试过程经常需要修改目标文件或者*.so动态库文件。目标文件运行时默认会从/usr/lib等目录读取so文件，但是这些目录是只读型的，修改不了so文件。解决方法就是把新修改的so文件放在共享目录，比如nfs共享目录，这里写成/tmp/nfsfile。然后改变环境变量，让目标文件优先从指定目录读取so文件。 在终端执行命令export LD_LIBRARY_PATH=/tmp/nfsfile:$LD_LIBRARY_PATH 其中/tmp/nfsfile根据实际修改成对应的目录]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[vmware linux虚拟机压缩磁盘]]></title>
+    <url>%2F2018%2F03%2F03%2Flinux__vmware_linux_disk_shrink%2F</url>
+    <content type="text"><![CDATA[前言为什么要压缩磁盘？使用linux虚拟机开发过程，逐渐把文件放虚拟机linux中，会发现windows系统下存放linux虚拟机的目录占的磁盘空间越来越大，刚开始可能是10G左右，到后来可能是100G甚至更大。你会发现即使在linux终端中把linux系统中存放的一些不用的大文件删除了，结果还是占那么大的磁盘空间！磁盘占用过大很浪费，而且也不方便备份虚拟机目录。所以就需要压缩虚拟机磁盘了，把磁盘碎片清理掉。 安装vmware tools略 开始压缩在linux终端执行以下命令可查看磁盘路径，一般压缩根目录 sudo /usr/bin/vmware-toolbox-cmd disk list 在linux终端执行以下命令开始压缩。压缩过程虚拟机尽量避免操作虚拟机，此过程比较耗时 sudo /usr/bin/vmware-toolbox-cmd disk shrink /]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>disk</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[windows访问linux samba目录]]></title>
+    <url>%2F2018%2F03%2F03%2Flinux__windows_open_linux_samba%2F</url>
+    <content type="text"><![CDATA[前言做linux开发时很多人会选择在windows系统上安装linux虚拟机，然后在windows系统编辑代码，在linux系统编译代码。这就需要linux系统和windows系统共享文件了。本文先介绍把linux系统的文件共享给windows系统，反过来把windows系统的文件共享给linux系统的方法请参考我的另一篇文章《linux挂载windows共享目录》。 安装samba server这一步需要根据具体系统而定，可在网上搜索方法。以下仅供参考： sudo apt-get install samba smbfs samba-common smbclient 修改配置sudo vi /etc/samba/smb.conf 在 smb.conf 最后添加 [username] path = /home/username available = yes browseable = yes writable = yes public = no valid users = username 创建samba账户sudo smbpasswd -a USERNAME USERNAME 换成你的用户名。会要求你输入 samba 帐户的密码 重启samba服务sudo /etc/init.d/smbd reload sudo /etc/init.d/smbd restart 测试可以到 windows 下输入 ubuntu ip 试一下了在“我的电脑”或者在 “运行”处输入 “ \ + linux 机器的 ip”如：\192.168.1.100]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>samba</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[linux挂载windows cifs共享目录]]></title>
+    <url>%2F2018%2F03%2F03%2Flinux__linux_mount_windows_cifs%2F</url>
+    <content type="text"><![CDATA[做linux开发时很多人会选择在windows系统上安装linux虚拟机，然后在windows系统编辑代码，在linux系统编译代码。这就需要linux系统和windows系统共享文件了。本文先介绍把windows系统的文件共享给linux系统，反过来把linux系统的文件共享给windows系统的方法请参考我的另一篇文章《windows访问linux samba目录》。 在windows上创建共享目录windows创建共享目录的方法可以选中文件夹，在右键菜单属性的共享里设置。 linux挂载windows共享目录在linux终端中执行如下命令，其中username和password替换成windows系统的用户名和密码，192.168.1.100替换成windows系统的ip地址，/linux_shared是windows系统上共享目录的路径，/mnt/win是linux上的目录。挂在成功后就可以在linux的/mnt/win目录中访问windows的共享目录文件了。 mkdir /mnt/win mount -t cifs -o user=username,pass=password,nounix,noserverino //192.168.1.100/linux_shared /mnt/win]]></content>
+      <categories>
+        <category>Linux</category>
+      </categories>
+      <tags>
+        <tag>Linux</tag>
+        <tag>cifs</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[IPC onvif全网通的实现原理]]></title>
+    <url>%2F2017%2F10%2F01%2Fonvif__onvif_allnet%2F</url>
+    <content type="text"><![CDATA[理解onvif全网通之前需要先理解一个概念，那就“IP网段”。先看看百度百科对IP网段的解释：（以下是百度百科的解释） 网段（network segment）一般指一个计算机网络中使用同一物理层设备（传输介质，中继器，集线器等）能够直接通讯的那一部分。例如，从192.168.0.1到192.168.255.255这之间就是一个网段。 在中文的网络知识入门中，这个词更经常地被误用来指代“子网”，也就是网络层中由网关或路由器等设备隔开的不同部分。例如IP为 192.168.0.1 ~ 192.168.0.254 的设备就位于掩码 255.255.255.0 的同一子网中，这句话经常被说成“位于192.168.0.x ‘网段’中”，如果不涉及网络层之下的结构，这么说不会引起混淆，但是在深入探讨互联网底层结构的时候，应该避免使用“网段”来指代“子网”。 什么？你没看懂？是的，看到这里我也没看懂。那么让咱们先理解“子网掩码”。 （以下是百度百科的解释） 在同一网段，要求网络标识相同。网络标识就是用IP的二进制与子网掩码的二进制数据作&apos;与&apos;运算（可用WINDOWS计算器算二进制），所得结果，而不是IP地址前几段相同就表示在同一网段。若网络标识相同，就表示在同一网段。 例：192.168.0.1 255.255.255.0的网络标识为：192.168.0.0 192.168.0.1： 11000000.10101000.00000000.00000001 255.255.255.0：11111111.11111111.11111111.00000000 做 “与”运算 11000000.10101000.00000000.00000000 结果：192.168.0.0 还没看懂吗？反正我是看懂了。下面是我的理解，可能比较粗糙。 1、IP网段的理解： 与“子网掩码”进行“与”运算后结果相同的这些IP就在同一个“IP网段”之中。2、子网掩码的理解： 中文网络知识中，大家经常把“子网”理解为“网段”，“子网掩码”就是用来划分“网段”的。与“子网掩码”进行“与”运算后结果相同的这些IP就在同一个“IP网段”之中。 是的，这2个概念的理解就是鸡生蛋蛋生鸡，不能单独理解。 什么是onvif全网通什么是onvif协议，我在本文就不详细解释了，以后有机会再做个专题解释。先简单理解为基于HTTP协议的一个国际通用的网络通信规范，在安防监控领域之中被广泛应用于“IPC”与“NVR”之间的通信，NVR通过onvif协议可以添加IPC，并获取/设置IPC的相关配置，以及控制IPC的相关功能。 很多NVR常常不能跨网段添加和配置IPC，但是可以通过UDP广播方法跨网段搜索到同一个路由器里的IPC。onvif全网通的意思就是让NVR添加IPC突破不同网段的限制，不管NVR和IPC的IP是否在同一个网段、是否存在IP冲突，即插即用，只要都接到路由器中用NVR搜索，搜出来的IPC就可以直接添加使用。 IPC如何实现onvif全网通IPC实现onvif全网通的方法可能有很多种，本文使用的方法是：IPC收到NVR的udp广播包时，识别出NVR的IP地址，然后根据IPC当前的子网掩码和NVR的IP地址算出IP网段，知道IP网段就可以把IPC的IP改为与NVR同一个网段的IP了。 这里还有一个很重要的问题需要解决，那就是IP冲突： 一方面，同一批IPC出厂设置时的默认IP都是一样的，一上电之后IP都是冲突的。另一方面，因为一开始时NVR的网段和IPC的网段不是同一个网段，而传统的通过ping某个IP判断IP是否正在使用的方法显然不可取，因为ping是不能跨网段的。那么IPC修改自身IP之前要如何跨网段知道NVR所在网段有哪些IP是正在使用，哪些IP是未被使用的呢？这就需要使用ARP协议了。下面解释一下ARP协议。 使用ARP协议跨网段判断某个IP是否正在使用1、ARP协议 ARP协议是TCP/IP协议网际层的一种协议，是地址解析协议，可以根据IP地址获取物理地址（MAC地址）。 也就是说通过ARP协议可以获取某个IP地址的MAC地址，如果得到的MAC地址不存在或者与本机的MAC地址一致就说明这个IP地址没有被别的设备使用，如果得到的MAC地址存在且不是本机的MAC地址，就说明这个IP正在被别的设备使用。 2、怎么实现呢 在linux系统中的shell命令中有ping和arping，arping就是ARP级别的ping。具体实现可以参考linux源码中的arping实现源代码。或查看我的另一篇文章《linux socket使用ARP判断局域网指定IP是否被占用》]]></content>
+      <categories>
+        <category>Onvif</category>
+      </categories>
+      <tags>
+        <tag>Onvif</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[web无插件解码播放H264/H265(js解码HTML5播放)]]></title>
+    <url>%2F2017%2F09%2F28%2Fweb__web_js_decode_h264_h265%2F</url>
+    <content type="text"><![CDATA[项目意义：长久以来，安防领域的网络摄像机(IPC)的WEB视频直播都依赖于浏览器插件，IE浏览器使用ActiveX插件，Chrome和Firefox浏览器使用NPAPI插件。之所以开发浏览器插件来收流、解码、播放IPC的实时视频，是因为早期HTML的发展过于缓慢，在纯web代码无法实现的情况下开发者只能使用插件来辅助。此方法的弊端显而易见，比如用户使用不方便，打开web之后需要点击下载并安装插件才可以播放IPC的实时视频，而且很多用户会担心第三方插件的安全性。原本出于安全考虑，浏览器把web代码的运行限制于沙箱之中，并限制web代码很多本地接口的权限，营造出比较安全的网络环境。浏览器插件的设计违背了这个初衷，因为插件可以获得和桌面应用程序几乎一样的权限，安装完插件之后打开web时，web代码可以调用插件肆意的读写电脑本地数据。这几年微软、谷歌、苹果、Mozilla等各大浏览器厂商也意识到了浏览器插件的安全问题，开始在新发布的浏览器中限制第三方插件的使用。现在Edge、Chrome、Safari、Firefox等浏览器已经不支持NPAPI插件，只剩下IE浏览器还在支持ActiveX插件，导致IPC的web页面只能在IE内核的浏览器播放实时视频。所以实现web无插件实时播放IPC的H264/H265视频十分重要。 项目描述：视频传输使用websocket协议，ipc后端推流使用C语言编程，web前端收流使用js语言。web的视频解码库使用js语言，通过emscripten工具把C语言解码库代码编译成js。解码后的YUV数据转换为RGB后推到HTML5的canvas播放。 解码器选择：由于找不到合适的开源js解码器代码，所以选用C语言的解码器，通过emscripten工具把C语言解码库编译成js库。先后尝试过libde265、openhevc、ffmpeg，最后选择了ffmpeg。ffmpeg源码的下载与api使用参考之前发布的文章。 emscripten安装：这个工具的安装非常麻烦，过程会报很多错误，需要预先安装很多软件，需要一定耐心。没关系，根据报错提示一个个排除，最后就可以成功的。 //下载wget https://s3.amazonaws.com/mozilla-games/emscripten/releases/emsdk-portable.tar.gztar -xvf emsdk-portable.tar.gzcd emsdk-portable //安装./emsdk update./emsdk install latest./emsdk activate latest //更新环境变量source ./emsdk_env.sh //测试,查看版本emcc -v libffmpeg.js的编译emconfigure ./configure –cc=”emcc” –cxx=”em++” –ar=”emar” –prefix=$(pwd)/../dist –enable-cross-compile –target-os=none –arch=x86_32 –cpu=generic \ –enable-gpl –enable-version3 –disable-avdevice –disable-avformat –disable-swresample –disable-postproc –disable-avfilter \ –disable-programs –disable-logging –disable-everything –enable-decoder=hevc –enable-decoder=h264 \ –disable-ffplay –disable-ffprobe –disable-ffserver –disable-asm –disable-doc –disable-devices –disable-network \ –disable-hwaccels –disable-parsers –disable-bsfs –disable-debug –disable-protocols –disable-indevs –disable-outdevsmakemake install export TOTAL_MEMORY=268435456export EXPORTED_FUNCTIONS=”[ \ ‘_avcodec_register_all’, \ ‘_avcodec_find_decoder’, \ ‘_avcodec_alloc_context3’, \ ‘_avcodec_open2’, \ ‘_av_free’, \ ‘_av_frame_alloc’, \ ‘_avcodec_close’, \ ‘_avcodec_decode_video2_js’, \ ‘_avcodec_get_image_width_js’, \ ‘_avcodec_get_image_height_js’, \ ‘_avcodec_get_chroma_format_js’, \ ‘_avcodec_get_image_plane_js’, \ ‘_avcodec_get_image_pitch_js’, \ ‘_avcodec_get_image_bit_depth_js’, \ ‘_avcodec_close_AVCodecContext_js’, \ ‘_avcodec_flush_buffers’]”emcc dist/lib/libavcodec.a dist/lib/libavutil.a \ -s OUTLINING_LIMIT=100000 \ -s TOTAL_MEMORY=${TOTAL_MEMORY} \ -s EXPORTED_FUNCTIONS=”${EXPORTED_FUNCTIONS}” \ -O2 \ –pre-js libffmpeg_pre.js \ –post-js libffmpeg_post.js \ -o libffmpeg.js 测试效果：使用最新的Firefox浏览器解码H264的1080P分辨率时，延时可以控制在几百毫秒以内，测试的最大分辨率是2592X1944，也比较实时。解码H265的1080P分辨率时，比较负荷比较大，会有卡顿现象。 还有更高性能的解决方案，使用WebAssembly解码H264/H265，可参考我的另一篇文章： 《web无插件解码播放H264/H265(WebAssembly解码HTML5播放)》 http://blog.csdn.net/Jacob_job/article/details/79436639 《JS如何调用WebAssembly的api》 http://blog.csdn.net/Jacob_job/article/details/79434207]]></content>
+      <categories>
+        <category>Web</category>
+        <category>音视频</category>
+      </categories>
+      <tags>
+        <tag>Web</tag>
+        <tag>H264&amp;H265</tag>
+        <tag>HTML5</tag>
+        <tag>Javascript</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[使用ffmpeg的lib库实现视频窗口 原始宽高比例/拉伸铺满]]></title>
+    <url>%2F2017%2F09%2F27%2Fffmpeg__yuv_w_h_full%2F</url>
+    <content type="text"><![CDATA[编译关于ffmpeg lib库的编译，参考之前发布的文件“使用ffmpeg的lib库解码H264/H265” configure的编译选项需要开启swscale，所以不能添加–disable-swscale，编译安装成功后会生成libswscale.a 播放器的实际宽高比例常常与视频帧数据的原始宽高比例不一致。如果选择保持原始比例，则上下或左右会出现黑边，优点是视频中的物体保持原始比例、比较真实，但缺点是黑边会影响界面美观。如图： 如果选择拉伸铺满，优点是不会出现黑边，感觉视频窗口比较大，但缺点是拉伸之后视频中的物体失去了真实的宽高比例。如图： 2种方式各有优缺点，根据实际需求选择，或可以都提供给用户自己选择。 使用到的apiint av_picture_pad(AVPicture *dst, const AVPicture *src, int height, int width, enum AVPixelFormat pix_fmt, int padtop, int padbottom, int padleft, int padright, int *color); demo程序此demo程序结合了之前发布的文章“使用ffmpeg的lib库缩放视频窗口宽高尺寸”中的demo //src_pic 是解码后的yuv图像数据, dst_pic是缩放后得到的yuv图像数据, pad_pic是调整比例后的yuv图像数据, nDstW、nDstH 是指定宽高像素大小, keep_scale 置1保持原始比例 置0拉伸铺满 int imgScaleChange(AVCodecContext *pCodecCtx,AVFrame *src_pic,AVFrame *dst_pic,AVFrame *pad_pic,int nDstW ,int nDstH,int keep_scale ) { if((dst_pic==NULL)||(pad_pic==NULL)) return 0; int nDstStride[3]; int nSrcW = src_pic-&gt;width; int nSrcH = src_pic-&gt;height; /* 计算保持宽高比例后上下有黑边,还是左右有黑边,黑边多少 */ int imgW = 0,imgH = 0; int padW = 0,padH = 0; if(keep_scale&gt;0){ imgW = nSrcW*nDstH/nSrcH; imgH = nSrcH*nDstW/nSrcW; if(imgW&lt;nDstW){ padW=(nDstW-imgW)/2; imgH = nDstH; } else if(imgH&lt;nDstH){ padH=(nDstH-imgH)/2; imgW = nDstW; } } else{ imgW = nDstW; imgH = nDstH; } struct SwsContext* m_pSwsContext; dst_pic-&gt;linesize[0] = imgW; dst_pic-&gt;linesize[1] = imgW / 2; dst_pic-&gt;linesize[2] = imgW / 2; dst_pic-&gt;format=src_pic-&gt;format; //AV_PIX_FMT_YUV420P; // src_pic-&gt;format; if((dst_pic-&gt;width!=imgW)||(dst_pic-&gt;height!=imgH)){ dst_pic-&gt;width=imgW; dst_pic-&gt;height=imgH; if((dst_pic-&gt;data!=NULL)&amp;&amp;(dst_pic-&gt;data[0]!=NULL)) avpicture_free((AVPicture *)dst_pic); if(avpicture_alloc((AVPicture *)dst_pic, dst_pic-&gt;format,dst_pic-&gt;width*2, dst_pic-&gt;height*2)&lt;0){ printf(&quot;dst_picture allocate failed\n&quot;); return 0; } } m_pSwsContext = sws_getContext(nSrcW, nSrcH, src_pic-&gt;format,imgW, imgH, dst_pic-&gt;format,SWS_FAST_BILINEAR,NULL, NULL, NULL); if (NULL == m_pSwsContext){ printf(&quot;sws_getContext error!\n&quot;); return 0; } sws_scale(m_pSwsContext, src_pic-&gt;data,src_pic-&gt;linesize, 0, pCodecCtx-&gt;height,dst_pic-&gt;data,dst_pic-&gt;linesize); sws_freeContext(m_pSwsContext); if(keep_scale&gt;0){ pad_pic-&gt;linesize[0] = nDstW; pad_pic-&gt;linesize[1] = nDstW / 2; pad_pic-&gt;linesize[2] = nDstW / 2; pad_pic-&gt;format=dst_pic-&gt;format; if((pad_pic-&gt;width!=nDstW)||(pad_pic-&gt;height!=nDstH)){ pad_pic-&gt;width=nDstW; pad_pic-&gt;height=nDstH; if((pad_pic-&gt;data!=NULL)&amp;&amp;(pad_pic-&gt;data[0]!=NULL)) avpicture_free((AVPicture *)pad_pic); if(avpicture_alloc((AVPicture *)pad_pic, pad_pic-&gt;format,pad_pic-&gt;width*2, pad_pic-&gt;height*2)&lt;0){ printf(&quot;pad_picture allocate failed\n&quot;); return 0; } } //黑色的yuv数值是0 128 128 int pColor[3]={0,128,128}; av_picture_pad((AVPicture *)pad_pic,(AVPicture *)dst_pic,nDstH,nDstW,pad_pic-&gt;format,padH,padH,padW,padW,pColor); } return 1 ; }]]></content>
+      <categories>
+        <category>FFmpeg</category>
+      </categories>
+      <tags>
+        <tag>FFmpeg</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[使用ffmpeg的lib库缩放视频yuv宽高尺寸]]></title>
+    <url>%2F2017%2F09%2F27%2Fffmpeg__yuv_w_h%2F</url>
+    <content type="text"><![CDATA[编译关于ffmpeg lib库的编译，参考之前发布的文件“使用ffmpeg的lib库解码H264/H265” configure的编译选项需要开启swscale，所以不能添加–disable-swscale，编译安装成功后会生成libswscale.a 播放器显示的视频宽高尺寸常常与视频帧数据的原始宽高尺寸不一致，可以使用ffmpeg对解码后的yuv数据进行缩放。 使用到的apistruct SwsContext *sws_getContext(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat, int flags, SwsFilter *srcFilter, SwsFilter *dstFilter, const double *param); int sws_scale(struct SwsContext *c, const uint8_t *const srcSlice[], const int srcStride[], int srcSliceY, int srcSliceH, uint8_t *const dst[], const int dstStride[]); void sws_freeContext(struct SwsContext *swsContext); demo程序//src_pic 是解码后的yuv图像数据, dst_pic是缩放后得到的yuv图像数据, nDstW、nDstH 是指定宽高像素大小 int imgScaleChange(AVCodecContext *pCodecCtx,AVFrame *src_pic,AVFrame *dst_pic,int nDstW ,int nDstH ) { if((dst_pic==NULL)||(pad_pic==NULL)) return 0; int nSrcW = src_pic-&gt;width; int nSrcH = src_pic-&gt;height; struct SwsContext* m_pSwsContext; dst_pic-&gt;linesize[0] = nDstW; dst_pic-&gt;linesize[1] = nDstW / 2; dst_pic-&gt;linesize[2] = nDstW / 2; dst_pic-&gt;format=src_pic-&gt;format; //AV_PIX_FMT_YUV420P; // src_pic-&gt;format; if((dst_pic-&gt;width!=nDstW)||(dst_pic-&gt;height!=nDstH)){ dst_pic-&gt;width=nDstW; dst_pic-&gt;height=nDstH; if((dst_pic-&gt;data!=NULL)&amp;&amp;(dst_pic-&gt;data[0]!=NULL)) avpicture_free((AVPicture *)dst_pic); if(avpicture_alloc((AVPicture *)dst_pic, dst_pic-&gt;format,dst_pic-&gt;width*2, dst_pic-&gt;height*2)&lt;0){ printf(&quot;dst_picture allocate failed\n&quot;); return 0; } } m_pSwsContext = sws_getContext(nSrcW, nSrcH, src_pic-&gt;format,nDstW, nDstH, dst_pic-&gt;format,SWS_FAST_BILINEAR,NULL, NULL, NULL); if (NULL == m_pSwsContext){ printf(&quot;sws_getContext error!\n&quot;); return 0; } sws_scale(m_pSwsContext, src_pic-&gt;data,src_pic-&gt;linesize, 0, pCodecCtx-&gt;height,dst_pic-&gt;data,dst_pic-&gt;linesize); sws_freeContext(m_pSwsContext); return 1 ; }]]></content>
+      <categories>
+        <category>FFmpeg</category>
+      </categories>
+      <tags>
+        <tag>FFmpeg</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[使用ffmpeg的lib库解码H264/H265]]></title>
+    <url>%2F2017%2F09%2F27%2Fffmpeg__decode_video%2F</url>
+    <content type="text"><![CDATA[ffmpeg的开源代码自行在ffmpeg的官方下载(http://ffmpeg.org/) 编译编译之前需要先安装gcc编译器，本文使用的是arm-linux的交叉编译器，这里简称arm-linux-gcc 本文使用的版本是 ffmpeg-3.3.3，下载得到ffmpeg-3.3.3.tar.bz2 mkdir dist tar xvf ffmpeg-3.3.3.tar.bz2 cd ffmpeg-3.3.3 ./configure --cc=&quot;arm-linux-gcc&quot; --cxx=&quot;arm-linux-g++&quot; --ar=&quot;arm-linux-ar&quot; --prefix=$(pwd)/../dist --enable-cross-compile --target-os=none --arch=x86_32 --cpu=generic \ --enable-gpl --enable-version3 --disable-avdevice --disable-avformat --disable-swresample --disable-postproc --disable-avfilter \ --disable-programs --disable-logging --disable-everything --enable-decoder=hevc --enable-decoder=h264 \ --disable-ffplay --disable-ffprobe --disable-ffserver --disable-asm --disable-doc --disable-devices --disable-network \ --disable-hwaccels --disable-parsers --disable-bsfs --disable-debug --disable-protocols --disable-indevs --disable-outdevs make make install configure命令的使用可以输入./configure –help查看，根据具体需求启用/禁用相关选项。为了裁剪代码，本文使用的编译选项只开启h264和h265的解码，其他功能禁用掉。编译生成静态lib库*.a，不生成可执行程序，可以方便在demo程序中直接调用。 以上命令都执行完之后，在dist目录中会生成libavcodec.a和libavutil.a api使用需要用到的api void avcodec_register_all(void); AVCodec *avcodec_find_decoder(enum AVCodecID id); AVCodecContext *avcodec_alloc_context3(const AVCodec *codec); int avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **options); void av_free(void *ptr); AVFrame *av_frame_alloc(void); int avcodec_close(AVCodecContext *avctx); int avcodec_decode_video2(AVCodecContext *avctx, AVFrame *picture, int *got_picture_ptr, const AVPacket *avpkt); 在demo程序调用api这里只写基本框架 AVCodec * m_codec = NULL; AVCodecContext * m_context = NULL; AVFrame *m_pic = NULL; //初始化解码器 int ffmpeg_init(AVCodec *m_codec, AVCodecContext *m_context, AVFrame *m_pic,int AV_CODEC_ID) { avcodec_register_all(); // AV_CODEC_ID H264是AV_CODEC_ID_H264, H265是AV_CODEC_ID_HEVC, 具体看ffmpeg源码中的宏定义 m_codec = avcodec_find_decoder(AV_CODEC_ID); m_context = libffmpeg.avcodec_alloc_context3(m_codec); int avcodecopenRes = avcodec_open2(m_context, m_codec, 0); if (avcodecopenRes &lt; 0){ if (m_context){ av_free(m_context); m_context = NULL; return -1; } } m_pic = av_frame_alloc(); if (!m_pic){ if (m_context){ avcodec_close(m_context); av_free(m_context); m_context = NULL; } return -1; } return 0; } //解码, 把原始的H264/H265视频帧数据传入，得到解码后的YUV数据 int ffmpeg_decode(AVCodecContext *m_context, AVFrame *m_pic,unsigned char *avpkt_data,int avpkt_size) { AVPacket avpkt; memset(&amp;avpkt,0,sizeof(AVPacket)); avpkt.data = avpkt_data; avpkt.size = avpkt_size; int got_picture_ptr=0; int ret_value=0; ret_value=avcodec_decode_video2(m_context, m_pic, &amp;got_picture_ptr,&amp;avpkt); if(ret_value&gt;0 &amp;&amp; got_picture_ptr&gt;0){ return 0; } else{ return -1; } } /* 解码后的yuv数据在AVFrame *m_pic之中 m_pic-&gt;width 表示视频画面的像素宽度 m_pic-&gt;height 表示视频画面的像素高度 m_pic-&gt;format 表示yuv的格式，如比YUV420、YUV422、YUV444等，具体看ffmpeg源码中的枚举enum AVPixelFormat已经相关宏定义 m_pic-&gt;data[3] 表示解码后的yuv数据中元素data[0]、data[1]、data[2]分别表示Y、U、V m_pic-&gt;linesize[3] 表示解码后的Y、U、V数据每行的size，linesize[0]、linesize[1]、linesize[2]分别表示Y、U、V */ //释放解码器 void ffmpeg_free(AVCodec *m_codec, AVCodecContext *m_context, AVFrame *m_pic) { if (m_codec &amp;&amp; m_context){ m_codec-&gt;close(m_context); m_codec = NULL; } if (this.m_context) { avcodec_close(m_context); av_free(m_context); } if (m_pic) { av_free(m_pic); } m_pic = NULL; m_codec = NULL; m_context = NULL; }]]></content>
+      <categories>
+        <category>FFmpeg</category>
+      </categories>
+      <tags>
+        <tag>H264&amp;H265</tag>
+        <tag>FFmpeg</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[onvif profiles概述]]></title>
+    <url>%2F2017%2F09%2F27%2Fonvif__onvif_profiles%2F</url>
+    <content type="text"><![CDATA[ONVIF Profiles是什么？ ONVIF提供很多的profile概要文件，用于规范ONVIF设备端与ONVIF客户端的通信标准。目前已发布的profile文件主要包括profile S、G、C、Q、A，不同的profile文件应用于不同的领域，不同profile文件可以组合使用。Profile文件的一致性是确保符合ONVIF产品的兼容性的唯一方法，因此，只有符合profile文件的注册产品才被认为是兼容ONVIF的。 Profile S、G、C、Q、A分别应用于什么领域呢？ Profile S应用于网络视频系统，Profile G应用于边缘存储与检索，Profile C应用于网络电子门禁系统，Profile Q应用于快速安装，Profile A应用于更广泛的访问控制配置。 更详细的解释如下： Profile S应用于网络视频系统，内容包括： 1、视频和音频流 2、PTZ控制和继电器输出 3、视频配置和多播 Profile S应用于网络视频系统。Profile S的设备(例如：网络摄像机或视频编码器)可以将视频数据通过IP网络发送到Profile S的客户端。Profile S的客户端(例如：视频管理软件)可以配置、请求和控制从Profile S的设备上的IP网络视频流。 Profile G应用于边缘存储与检索，内容包括： 1、配置、请求、控制录像 2、接收视频/音频流 Profile G应用于网络视频系统。Profile G设备(例如:网络摄像机或视频编码器)可以通过网络存储或本地存储录像。Profile G客户端(例如：视频管理软件)可以配置、请求和控制Profile G设备上的录像。 Profile C应用于网络电子门禁系统，内容包括： 1、站点信息和配置 2、事件和警报管理 3、门禁控制 Profile C应用于电子门禁系统。Profile C设备和客户应支持站点信息、门禁控制、事件和报警管理。 Profile Q应用于快速安装，内容包括： 1、简单的设置 2、发现、配置和控制设备 3、先进的安全功能 Profile Q应用于网络视频系统，其目的是提供Profile Q产品的快速发现和配置（例如：网络摄像机、网络交换机、网络监视器）。Profile Q的客户端能够发现、配置和控制Profile Q设备。Profile Q也提供有条件的特点，支持传输层安全协议（TLS），允许ONVIF设备与客户端以防止篡改和窃听的安全方式进行网络通信。 Profile A应用于更广泛的访问控制配置，内容包括： 1、授予/撤销证书 2、创建时间表 3、指定访问规则 Profile A应用于电子门禁系统。Profile A的设备可以检索信息、状态和事件，并配置访问规则、凭据和时间表等。Profile A的客户端可以访问规则配置、凭据和时间表。Profile A客户端还可以检索和接收标准化的访问控制相关事件。]]></content>
+      <categories>
+        <category>Onvif</category>
+      </categories>
+      <tags>
+        <tag>Onvif</tag>
+      </tags>
+  </entry>
+</search>

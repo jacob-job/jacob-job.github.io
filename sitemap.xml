@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>http://yoursite.com/2018/05/03/tcpip__linux_socket_arp/</loc>
+    
+    <lastmod>2018-05-19T19:41:17.979Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2017/09/27/ffmpeg__yuv_w_h_full/</loc>
+    
+    <lastmod>2018-05-19T19:35:42.909Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2017/09/27/ffmpeg__yuv_w_h/</loc>
+    
+    <lastmod>2018-05-19T19:29:20.170Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2017/09/27/ffmpeg__decode_video/</loc>
+    
+    <lastmod>2018-05-19T19:26:07.719Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/04/webassembly__emscripten_build_wasm/</loc>
+    
+    <lastmod>2018-05-19T19:21:05.639Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/webassembly__wabt_tools/</loc>
+    
+    <lastmod>2018-05-19T19:18:38.386Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/webassembly__emscripten_tools/</loc>
+    
+    <lastmod>2018-05-19T19:17:08.118Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/webassembly__introduction/</loc>
+    
+    <lastmod>2018-05-19T19:14:49.551Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/rtsprtp__jrtplib_usage_note/</loc>
+    
+    <lastmod>2018-05-19T19:02:00.383Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/rtsprtp__rtp_format/</loc>
+    
+    <lastmod>2018-05-19T18:59:23.203Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/rtsprtp__rtsp_communication/</loc>
+    
+    <lastmod>2018-05-19T18:55:04.555Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/rtmp__rtmp_communication/</loc>
+    
+    <lastmod>2018-05-19T18:49:10.416Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/rtmp__flv_format/</loc>
+    
+    <lastmod>2018-05-19T18:45:03.504Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/05/tcpip__https_ssl_openssl/</loc>
+    
+    <lastmod>2018-05-19T18:41:20.305Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/05/onvif__gsoap_build_onvif_source/</loc>
+    
+    <lastmod>2018-05-19T18:34:37.086Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2017/10/01/onvif__onvif_allnet/</loc>
+    
+    <lastmod>2018-05-19T18:30:52.360Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2017/09/27/onvif__onvif_profiles/</loc>
+    
+    <lastmod>2018-05-19T18:25:07.290Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/04/web__js_call_wasm_api/</loc>
+    
+    <lastmod>2018-05-19T18:16:38.030Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/04/web__web_wasm_decode_h264_h265/</loc>
+    
+    <lastmod>2018-05-19T18:12:40.157Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2017/09/28/web__web_js_decode_h264_h265/</loc>
+    
+    <lastmod>2018-05-19T18:09:29.411Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/nodejs__ejs_usage_note/</loc>
+    
+    <lastmod>2018-05-19T18:01:29.193Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/nodejs__nodejs_package_install/</loc>
+    
+    <lastmod>2018-05-19T17:58:14.267Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/nodejs__forever_run_nodejs/</loc>
+    
+    <lastmod>2018-05-19T17:55:35.274Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/mongodb__mongodb_dump_restore/</loc>
+    
+    <lastmod>2018-05-19T17:52:47.728Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/nodejs__nodejs_use_mongodb/</loc>
+    
+    <lastmod>2018-05-19T17:47:21.898Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/c__linux_c_multiple_static_lib/</loc>
+    
+    <lastmod>2018-05-19T17:41:06.421Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/05/08/linux__ubuntu_x64_install_32bit_lib/</loc>
+    
+    <lastmod>2018-05-19T17:33:28.306Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/05/08/linux__ubuntu_14&18_mount_wmware_hgfs/</loc>
+    
+    <lastmod>2018-05-19T17:31:16.580Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/05/08/linux__ubuntu_server_install_wmtools/</loc>
+    
+    <lastmod>2018-05-19T17:28:25.521Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/05/03/linux__makefile_c&c++_build/</loc>
+    
+    <lastmod>2018-05-19T17:24:59.767Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/linux__linux_mount_nfs/</loc>
+    
+    <lastmod>2018-05-19T17:20:49.766Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/linux__vmware_ubuntu_server_14_add_root_path/</loc>
+    
+    <lastmod>2018-05-19T17:16:25.063Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/linux__linux_change_lib_path/</loc>
+    
+    <lastmod>2018-05-19T17:09:03.327Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/linux__windows_open_linux_samba/</loc>
+    
+    <lastmod>2018-05-19T17:05:40.767Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/linux__linux_mount_windows_cifs/</loc>
+    
+    <lastmod>2018-05-19T17:05:22.772Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/2018/03/03/linux__vmware_linux_disk_shrink/</loc>
+    
+    <lastmod>2018-05-19T17:03:43.313Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/about/index.html</loc>
+    
+    <lastmod>2018-05-19T15:10:37.064Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/categories/index.html</loc>
+    
+    <lastmod>2018-05-19T12:25:31.534Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>http://yoursite.com/tags/index.html</loc>
+    
+    <lastmod>2018-05-19T12:20:19.155Z</lastmod>
+    
+  </url>
+  
+</urlset>
